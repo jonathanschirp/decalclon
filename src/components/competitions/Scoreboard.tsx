@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Competition, Athlete, AthleteScore, EventDefinition } from '../../types';
 import { getEventsForType } from '../../lib/events';
 import { formatPerformance } from '../../lib/scoring';
-import { calculatePredictedScores, getCurrentEvent, isPersonalBest } from '../../lib/predictions';
+import { calculatePredictedScores, getCurrentEvent, isPersonalBest, DNS_MARK } from '../../lib/predictions';
 import { PerformanceInput } from '../common/PerformanceInput';
 
 type SortMode = 'predicted' | 'current';
@@ -23,7 +23,7 @@ function positionMedal(pos: number): string {
 
 function eventRank(scores: AthleteScore[], eventId: string): Map<string, number> {
   const ranked = scores
-    .filter((s) => s.eventScores[eventId]?.isActual)
+    .filter((s) => s.eventScores[eventId]?.isActual && !s.eventScores[eventId]?.isDNS)
     .sort((a, b) => b.eventScores[eventId].points - a.eventScores[eventId].points);
   const map = new Map<string, number>();
   ranked.forEach((s, i) => map.set(s.athleteId, i + 1));
@@ -31,13 +31,16 @@ function eventRank(scores: AthleteScore[], eventId: string): Map<string, number>
 }
 
 function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
-  const sorted = [...scores].sort((a, b) =>
-    mode === 'predicted'
+  const sorted = [...scores].sort((a, b) => {
+    // Withdrawn athletes always sort to the bottom
+    if (a.withdrawn !== b.withdrawn) return a.withdrawn ? 1 : -1;
+    return mode === 'predicted'
       ? b.predictedFinalScore - a.predictedFinalScore
-      : b.totalActualPoints - a.totalActualPoints,
-  );
-  sorted.forEach((score, index) => {
-    score.position = index + 1;
+      : b.totalActualPoints - a.totalActualPoints;
+  });
+  let pos = 1;
+  sorted.forEach((score) => {
+    score.position = score.withdrawn ? 0 : pos++;
   });
   return sorted;
 }
@@ -67,6 +70,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
     event: EventDefinition,
   ): string => {
     const es = score.eventScores[event.id];
+    if (!es || es.isDNS) return 'bg-red-50';
     if (!es || es.performance == null) return 'bg-gray-50';
     if (!es.isActual) return 'bg-gray-50';
 
@@ -138,84 +142,121 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
             </tr>
           </thead>
           <tbody>
-            {scores.map((score) => (
-              <tr key={score.athleteId} className="border-b border-gray-200 hover:bg-blue-50/30">
-                <td className={`sticky left-0 z-10 px-3 py-2 text-center font-bold ${positionMedal(score.position)}`}>
-                  {score.position}
-                </td>
-                <td className="sticky left-8 z-10 bg-white px-3 py-2 font-medium whitespace-nowrap">
-                  {score.athleteName}
-                </td>
-                {events.map((event) => {
-                  const es = score.eventScores[event.id];
-                  const isEditing =
-                    editingCell?.athleteId === score.athleteId && editingCell?.eventId === event.id;
+            {scores.map((score) => {
+              const rowClass = score.withdrawn
+                ? 'border-b border-gray-200 opacity-50'
+                : 'border-b border-gray-200 hover:bg-blue-50/30';
 
-                  if (isEditing) {
+              return (
+                <tr key={score.athleteId} className={rowClass}>
+                  <td className={`sticky left-0 z-10 px-3 py-2 text-center font-bold ${score.withdrawn ? 'bg-gray-100 text-red-500' : positionMedal(score.position)}`}>
+                    {score.withdrawn ? 'DNF' : score.position}
+                  </td>
+                  <td className={`sticky left-8 z-10 px-3 py-2 font-medium whitespace-nowrap ${score.withdrawn ? 'bg-gray-100 line-through text-gray-500' : 'bg-white'}`}>
+                    {score.athleteName}
+                  </td>
+                  {events.map((event) => {
+                    const es = score.eventScores[event.id];
+                    const isEditing =
+                      editingCell?.athleteId === score.athleteId && editingCell?.eventId === event.id;
+
+                    if (isEditing) {
+                      return (
+                        <td key={event.id} className="px-2 py-1">
+                          <PerformanceInput
+                            event={event}
+                            value={es?.performance}
+                            autoFocus
+                            onChange={(val) => {
+                              onResultEntered(score.athleteId, event.id, val);
+                              setEditingCell(null);
+                            }}
+                            onDNS={() => {
+                              onResultEntered(score.athleteId, event.id, DNS_MARK);
+                              setEditingCell(null);
+                            }}
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        </td>
+                      );
+                    }
+
+                    // DNS cell
+                    if (es?.isDNS) {
+                      return (
+                        <td
+                          key={event.id}
+                          className="px-3 py-2 text-center bg-red-50 group relative"
+                        >
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
+                          >
+                            <span className="text-xs font-bold text-red-500">DNS</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onResultReset(score.athleteId, event.id);
+                            }}
+                            className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Reset to PB"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      );
+                    }
+
                     return (
-                      <td key={event.id} className="px-2 py-1">
-                        <PerformanceInput
-                          event={event}
-                          value={es?.performance}
-                          autoFocus
-                          onChange={(val) => {
-                            onResultEntered(score.athleteId, event.id, val);
-                            setEditingCell(null);
-                          }}
-                          onCancel={() => setEditingCell(null)}
-                        />
+                      <td
+                        key={event.id}
+                        className={`px-3 py-2 text-center ${cellBg(score, event)} group relative`}
+                      >
+                        {es && es.performance != null ? (
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
+                          >
+                            <div className={es.isActual ? 'font-semibold' : 'italic text-gray-400'}>
+                              {formatPerformance(event, es.performance)}
+                            </div>
+                            <div className={`text-xs ${es.isActual ? 'text-gray-700' : 'text-gray-400'}`}>
+                              {es.points} pts
+                            </div>
+                            {es.isActual && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onResultReset(score.athleteId, event.id);
+                                }}
+                                className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                title="Reset to PB"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span
+                            className="text-gray-300 cursor-pointer"
+                            onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
+                          >
+                            —
+                          </span>
+                        )}
                       </td>
                     );
-                  }
-
-                  return (
-                    <td
-                      key={event.id}
-                      className={`px-3 py-2 text-center ${cellBg(score, event)} group relative`}
-                    >
-                      {es && es.performance != null ? (
-                        <div
-                          className="cursor-pointer"
-                          onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
-                        >
-                          <div className={es.isActual ? 'font-semibold' : 'italic text-gray-400'}>
-                            {formatPerformance(event, es.performance)}
-                          </div>
-                          <div className={`text-xs ${es.isActual ? 'text-gray-700' : 'text-gray-400'}`}>
-                            {es.points} pts
-                          </div>
-                          {es.isActual && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onResultReset(score.athleteId, event.id);
-                              }}
-                              className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                              title="Reset to PB"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <span
-                          className="text-gray-300 cursor-pointer"
-                          onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
-                        >
-                          —
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-                <td className={`sticky right-[100px] z-10 px-3 py-2 text-center font-mono font-semibold ${sortMode === 'current' ? 'bg-blue-50 text-blue-900 text-lg font-bold' : 'bg-white'}`}>
-                  {score.totalActualPoints}
-                </td>
-                <td className={`sticky right-0 z-10 px-3 py-2 text-center font-mono ${sortMode === 'predicted' ? 'font-bold text-lg text-blue-900 bg-blue-50' : 'font-semibold bg-white'}`}>
-                  {score.predictedFinalScore}
-                </td>
-              </tr>
-            ))}
+                  })}
+                  <td className={`sticky right-[100px] z-10 px-3 py-2 text-center font-mono font-semibold ${score.withdrawn ? 'bg-gray-100' : sortMode === 'current' ? 'bg-blue-50 text-blue-900 text-lg font-bold' : 'bg-white'}`}>
+                    {score.totalActualPoints}
+                  </td>
+                  <td className={`sticky right-0 z-10 px-3 py-2 text-center font-mono ${score.withdrawn ? 'bg-gray-100' : sortMode === 'predicted' ? 'font-bold text-lg text-blue-900 bg-blue-50' : 'font-semibold bg-white'}`}>
+                    {score.withdrawn ? '—' : score.predictedFinalScore}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -56,9 +56,10 @@ export interface EventDefinition {
 export interface AthleteScore {
   athleteId: string;
   athleteName: string;
-  eventScores: Record<string, { performance: number | null; points: number; isActual: boolean }>;
+  eventScores: Record<string, { performance: number | null; points: number; isActual: boolean; isDNS: boolean }>;
   totalActualPoints: number;
   predictedFinalScore: number;
   position: number;
   previousPosition?: number;
+  withdrawn: boolean;
 }

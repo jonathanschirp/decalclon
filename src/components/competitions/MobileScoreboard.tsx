@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Competition, Athlete, AthleteScore, EventDefinition } from '../../types';
 import { getEventsForType } from '../../lib/events';
 import { formatPerformance } from '../../lib/scoring';
-import { calculatePredictedScores, getCurrentEvent, isPersonalBest } from '../../lib/predictions';
+import { calculatePredictedScores, getCurrentEvent, isPersonalBest, DNS_MARK } from '../../lib/predictions';
 import { PerformanceInput } from '../common/PerformanceInput';
 
 type SortMode = 'predicted' | 'current';
@@ -22,13 +22,15 @@ function positionBadge(pos: number): string {
 }
 
 function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
-  const sorted = [...scores].sort((a, b) =>
-    mode === 'predicted'
+  const sorted = [...scores].sort((a, b) => {
+    if (a.withdrawn !== b.withdrawn) return a.withdrawn ? 1 : -1;
+    return mode === 'predicted'
       ? b.predictedFinalScore - a.predictedFinalScore
-      : b.totalActualPoints - a.totalActualPoints,
-  );
-  sorted.forEach((score, index) => {
-    score.position = index + 1;
+      : b.totalActualPoints - a.totalActualPoints;
+  });
+  let pos = 1;
+  sorted.forEach((score) => {
+    score.position = score.withdrawn ? 0 : pos++;
   });
   return sorted;
 }
@@ -55,6 +57,7 @@ export function MobileScoreboard({
 
   const cellBg = (score: AthleteScore, event: EventDefinition): string => {
     const es = score.eventScores[event.id];
+    if (es?.isDNS) return 'bg-red-50 border-red-300';
     if (!es || es.performance == null || !es.isActual) return 'bg-white';
     const athlete = athleteMap.get(score.athleteId);
     if (athlete && isPersonalBest(athlete, event.id, es.performance, event)) {
@@ -99,7 +102,11 @@ export function MobileScoreboard({
           return (
             <div
               key={score.athleteId}
-              className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+              className={`bg-white border rounded-lg overflow-hidden shadow-sm ${
+                score.withdrawn
+                  ? 'border-red-200 opacity-60'
+                  : 'border-gray-200'
+              }`}
             >
               {/* Card header — tap to expand */}
               <button
@@ -109,36 +116,52 @@ export function MobileScoreboard({
                 }
                 className="w-full flex items-center gap-3 p-3 text-left active:bg-gray-50"
               >
-                <div
-                  className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base ${positionBadge(score.position)}`}
-                >
-                  {score.position}
-                </div>
+                {score.withdrawn ? (
+                  <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-red-100 text-red-600">
+                    DNF
+                  </div>
+                ) : (
+                  <div
+                    className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base ${positionBadge(score.position)}`}
+                  >
+                    {score.position}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{score.athleteName}</div>
+                  <div className={`font-semibold truncate ${score.withdrawn ? 'line-through text-gray-500' : ''}`}>
+                    {score.athleteName}
+                  </div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {completedCount}/{events.length} events completed
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div
-                    className={
-                      sortMode === 'predicted'
-                        ? 'text-xl font-bold text-blue-900 leading-tight'
-                        : 'text-base font-semibold text-gray-900 leading-tight'
-                    }
-                  >
-                    {score.predictedFinalScore}
-                  </div>
-                  <div
-                    className={
-                      sortMode === 'current'
-                        ? 'text-sm font-bold text-blue-700'
-                        : 'text-xs text-gray-500'
-                    }
-                  >
-                    {score.totalActualPoints} current
-                  </div>
+                  {score.withdrawn ? (
+                    <div className="text-base font-semibold text-gray-400 leading-tight">
+                      {score.totalActualPoints}
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className={
+                          sortMode === 'predicted'
+                            ? 'text-xl font-bold text-blue-900 leading-tight'
+                            : 'text-base font-semibold text-gray-900 leading-tight'
+                        }
+                      >
+                        {score.predictedFinalScore}
+                      </div>
+                      <div
+                        className={
+                          sortMode === 'current'
+                            ? 'text-sm font-bold text-blue-700'
+                            : 'text-xs text-gray-500'
+                        }
+                      >
+                        {score.totalActualPoints} current
+                      </div>
+                    </>
+                  )}
                 </div>
                 <svg
                   className={`shrink-0 w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -182,8 +205,41 @@ export function MobileScoreboard({
                               onResultEntered(score.athleteId, event.id, val);
                               setEditingCell(null);
                             }}
+                            onDNS={() => {
+                              onResultEntered(score.athleteId, event.id, DNS_MARK);
+                              setEditingCell(null);
+                            }}
                             onCancel={() => setEditingCell(null)}
                           />
+                        </div>
+                      );
+                    }
+
+                    // DNS cell
+                    if (es?.isDNS) {
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() =>
+                            setEditingCell({ athleteId: score.athleteId, eventId: event.id })
+                          }
+                          className="relative p-2 rounded border border-red-300 bg-red-50 cursor-pointer active:bg-red-100"
+                        >
+                          <div className="text-[10px] font-semibold uppercase text-gray-500 truncate">
+                            {event.name}
+                          </div>
+                          <div className="text-sm font-bold text-red-500">DNS</div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onResultReset(score.athleteId, event.id);
+                            }}
+                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs text-gray-400 active:text-red-600 active:bg-red-50 rounded"
+                            aria-label="Reset to PB"
+                          >
+                            ✕
+                          </button>
                         </div>
                       );
                     }

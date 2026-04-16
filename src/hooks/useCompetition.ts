@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Competition, CompetitionResults } from '../types';
+import { getEventsForType } from '../lib/events';
+import { DNS_MARK } from '../lib/predictions';
 import * as api from '../lib/firebase';
 import { fetchEventResults, mapEventResults } from '../lib/worldathletics';
 
@@ -108,6 +110,62 @@ export const useCompetitions = create<CompetitionsState>((set, get) => ({
       const merged: CompetitionResults = { ...comp.results };
       for (const [athleteId, events] of Object.entries(newResults)) {
         merged[athleteId] = { ...merged[athleteId], ...events };
+      }
+
+      // Detect DNS gaps and trailing withdrawals.
+      const events = getEventsForType(comp.type);
+
+      // Helper: does another athlete have a real result for this event?
+      const eventHasOtherResult = (eventId: string, excludeId: string) =>
+        comp.athleteIds.some(
+          (otherId) => otherId !== excludeId && merged[otherId]?.[eventId] != null && merged[otherId][eventId] !== DNS_MARK,
+        );
+
+      for (const athleteId of comp.athleteIds) {
+        if (!merged[athleteId]) continue;
+        const athleteResults = merged[athleteId];
+
+        // Find the last event index this athlete has a real result for
+        let lastResultIdx = -1;
+        for (let i = events.length - 1; i >= 0; i--) {
+          const val = athleteResults[events[i].id];
+          if (val != null && val !== DNS_MARK) {
+            lastResultIdx = i;
+            break;
+          }
+        }
+
+        // 1) Mid-competition gaps: events before the athlete's last result
+        //    that are completed by others but missing for this athlete.
+        for (let i = 0; i < lastResultIdx; i++) {
+          const eventId = events[i].id;
+          if (athleteResults[eventId] != null) continue;
+          if (eventHasOtherResult(eventId, athleteId)) {
+            merged[athleteId] = { ...merged[athleteId], [eventId]: DNS_MARK };
+          }
+        }
+
+        // 2) Trailing withdrawal: if at least 2 events after the athlete's
+        //    last result have results for other athletes, the athlete has
+        //    stopped competing — mark all missing trailing events as DNS.
+        if (lastResultIdx >= 0 && lastResultIdx < events.length - 1) {
+          let completedAfter = 0;
+          for (let i = lastResultIdx + 1; i < events.length; i++) {
+            const eventId = events[i].id;
+            if (athleteResults[eventId] != null) break; // athlete has a result here, not trailing
+            if (eventHasOtherResult(eventId, athleteId)) completedAfter++;
+          }
+
+          if (completedAfter >= 2) {
+            for (let i = lastResultIdx + 1; i < events.length; i++) {
+              const eventId = events[i].id;
+              if (athleteResults[eventId] != null) continue;
+              if (eventHasOtherResult(eventId, athleteId)) {
+                merged[athleteId] = { ...merged[athleteId], [eventId]: DNS_MARK };
+              }
+            }
+          }
+        }
       }
 
       await api.updateCompetition(comp.id, { results: merged });

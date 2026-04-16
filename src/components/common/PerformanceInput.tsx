@@ -6,11 +6,12 @@ interface Props {
   event: EventDefinition;
   value?: number | null;
   onChange: (value: number) => void;
+  onDNS?: () => void;
   onCancel?: () => void;
   autoFocus?: boolean;
 }
 
-export function PerformanceInput({ event, value, onChange, onCancel, autoFocus }: Props) {
+export function PerformanceInput({ event, value, onChange, onDNS, onCancel, autoFocus }: Props) {
   const [input, setInput] = useState(value != null ? String(value) : '');
   const [points, setPoints] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -63,6 +64,15 @@ export function PerformanceInput({ event, value, onChange, onCancel, autoFocus }
         >
           Save
         </button>
+        {onDNS && (
+          <button
+            onClick={onDNS}
+            className="px-2 py-2 sm:py-1 text-sm sm:text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium"
+            title="Did Not Start / Did Not Finish"
+          >
+            DNS
+          </button>
+        )}
         {onCancel && (
           <button
             onClick={onCancel}
