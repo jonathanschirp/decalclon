@@ -137,7 +137,7 @@ export function MobileScoreboard({
                         : 'text-xs text-gray-500'
                     }
                   >
-                    {score.totalActualPoints} actual
+                    {score.totalActualPoints} current
                   </div>
                 </div>
                 <svg

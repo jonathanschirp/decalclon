@@ -1,18 +1,8 @@
 import { Link } from 'react-router-dom';
 import type { Athlete } from '../../types';
-import { getEventsForType } from '../../lib/events';
-import { calculatePoints } from '../../lib/scoring';
 
 interface Props {
   athletes: Athlete[];
-}
-
-function totalPBPoints(athlete: Athlete): number {
-  const events = getEventsForType(athlete.gender === 'male' ? 'decathlon' : 'heptathlon');
-  return events.reduce((sum, event) => {
-    const pb = athlete.personalBests[event.id];
-    return sum + (pb != null ? calculatePoints(event, pb) : 0);
-  }, 0);
 }
 
 export function AthleteList({ athletes }: Props) {
@@ -37,7 +27,7 @@ export function AthleteList({ athletes }: Props) {
               <th className="px-4 py-3 font-semibold">Name</th>
               <th className="px-4 py-3 font-semibold">Discipline</th>
               <th className="px-4 py-3 font-semibold">Nationality</th>
-              <th className="px-4 py-3 font-semibold text-right">PB Total</th>
+              <th className="px-4 py-3 font-semibold text-right">PB</th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +43,7 @@ export function AthleteList({ athletes }: Props) {
                 </td>
                 <td className="px-4 py-3 text-gray-600">{athlete.nationality || '—'}</td>
                 <td className="px-4 py-3 text-right font-mono font-semibold">
-                  {totalPBPoints(athlete)}
+                  {athlete.combinedPB != null ? athlete.combinedPB : '—'}
                 </td>
               </tr>
             ))}
@@ -77,10 +67,12 @@ export function AthleteList({ athletes }: Props) {
                   {athlete.nationality && ` · ${athlete.nationality}`}
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="font-mono font-bold text-gray-900">{totalPBPoints(athlete)}</div>
-                <div className="text-[10px] uppercase text-gray-500">PB Total</div>
-              </div>
+              {athlete.combinedPB != null && (
+                <div className="shrink-0 text-right">
+                  <div className="font-mono font-bold text-gray-900">{athlete.combinedPB}</div>
+                  <div className="text-[10px] uppercase text-gray-500">PB</div>
+                </div>
+              )}
             </div>
           </Link>
         ))}

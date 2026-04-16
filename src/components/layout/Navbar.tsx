@@ -28,8 +28,8 @@ export function Navbar() {
               onClick={() => setMenuOpen(false)}
               className="text-base sm:text-lg font-bold tracking-tight truncate"
             >
-              <span className="hidden sm:inline">Decathlon Predictor</span>
-              <span className="sm:hidden">Decathlon</span>
+              <span className="hidden sm:inline">Decalclon</span>
+              <span className="sm:hidden">Decalclon</span>
             </Link>
             {/* Desktop nav */}
             <div className="hidden md:flex gap-1 ml-8">

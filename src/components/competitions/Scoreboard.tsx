@@ -130,7 +130,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                 </th>
               ))}
               <th className={`sticky right-[100px] z-20 px-3 py-2 text-center font-semibold min-w-[80px] ${sortMode === 'current' ? 'bg-blue-900' : 'bg-slate-900'}`}>
-                Actual
+                Current
               </th>
               <th className={`sticky right-0 z-20 px-3 py-2 text-center font-semibold min-w-[100px] ${sortMode === 'predicted' ? 'bg-blue-900' : 'bg-slate-900'}`}>
                 Predicted

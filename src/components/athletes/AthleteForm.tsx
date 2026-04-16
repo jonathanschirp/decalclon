@@ -1,13 +1,79 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Select from 'react-select';
 import type { Athlete, Gender } from '../../types';
 import { getEventsForType } from '../../lib/events';
 import { calculatePoints, parseTimeInput, formatTime } from '../../lib/scoring';
 import { useAthletes } from '../../hooks/useAthletes';
 import { AthleteSearch } from './AthleteSearch';
+import { COUNTRIES } from '../../lib/countries';
+import type { EventDefinition } from '../../types';
 
 interface Props {
   athlete?: Athlete;
+}
+
+const countryOptions = COUNTRIES.map((c) => ({ value: c, label: c }));
+
+/** Events where performances typically exceed 60s and use m:ss.xx format */
+const LONG_TRACK_IDS = new Set([
+  'dec_400m', 'dec_1500m', 'hep_800m',
+]);
+
+/**
+ * Filter input characters for performance fields.
+ * - Field events: digits and one decimal point
+ * - Sprint track events: digits and one decimal point
+ * - Long track events: digits, one colon, and one decimal point
+ */
+function filterPerformanceInput(
+  value: string,
+  event: EventDefinition,
+): string {
+  if (event.type === 'field') {
+    // Only allow digits and a single dot, max 2 decimal places
+    let filtered = '';
+    let hasDot = false;
+    let decimals = 0;
+    for (const ch of value) {
+      if (ch >= '0' && ch <= '9') {
+        if (hasDot) {
+          if (decimals < 2) { filtered += ch; decimals++; }
+        } else {
+          filtered += ch;
+        }
+      } else if (ch === '.' && !hasDot) {
+        filtered += ch;
+        hasDot = true;
+      }
+    }
+    return filtered;
+  }
+
+  // Track events
+  const isLong = LONG_TRACK_IDS.has(event.id);
+
+  let filtered = '';
+  let hasDot = false;
+  let hasColon = false;
+  let decimals = 0;
+
+  for (const ch of value) {
+    if (ch >= '0' && ch <= '9') {
+      if (hasDot) {
+        if (decimals < 2) { filtered += ch; decimals++; }
+      } else {
+        filtered += ch;
+      }
+    } else if (ch === '.' && !hasDot) {
+      filtered += ch;
+      hasDot = true;
+    } else if (ch === ':' && isLong && !hasColon && !hasDot) {
+      filtered += ch;
+      hasColon = true;
+    }
+  }
+  return filtered;
 }
 
 export function AthleteForm({ athlete }: Props) {
@@ -19,7 +85,11 @@ export function AthleteForm({ athlete }: Props) {
   const [personalBests, setPersonalBests] = useState<Record<string, string>>(
     athlete
       ? Object.fromEntries(
-          Object.entries(athlete.personalBests).map(([k, v]) => [k, String(v)]),
+          Object.entries(athlete.personalBests).map(([k, v]) => {
+            const events = getEventsForType(athlete.gender === 'male' ? 'decathlon' : 'heptathlon');
+            const ev = events.find((e) => e.id === k);
+            return [k, ev?.type === 'track' ? formatTime(v) : String(v)];
+          }),
         )
       : {},
   );
@@ -28,6 +98,11 @@ export function AthleteForm({ athlete }: Props) {
   const [saving, setSaving] = useState(false);
 
   const events = getEventsForType(gender === 'male' ? 'decathlon' : 'heptathlon');
+
+  const selectedCountry = useMemo(
+    () => countryOptions.find((o) => o.value === nationality) ?? (nationality ? { value: nationality, label: nationality } : null),
+    [nationality],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +144,12 @@ export function AthleteForm({ athlete }: Props) {
     return calculatePoints(event, parsed);
   };
 
+  const placeholder = (event: EventDefinition) => {
+    if (event.type === 'field') return 'e.g. 7.65';
+    if (LONG_TRACK_IDS.has(event.id)) return 'e.g. 4:11.30';
+    return 'e.g. 10.85';
+  };
+
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -99,11 +180,16 @@ export function AthleteForm({ athlete }: Props) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
-          <input
-            type="text"
-            value={nationality}
-            onChange={(e) => setNationality(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <Select
+            options={countryOptions}
+            value={selectedCountry}
+            onChange={(opt) => setNationality(opt?.value ?? '')}
+            isClearable
+            placeholder="Search country..."
+            classNames={{
+              control: () => '!min-h-[42px] !border-gray-300 !rounded-md !shadow-none focus-within:!ring-2 focus-within:!ring-blue-500 focus-within:!border-blue-500',
+              menu: () => '!z-20',
+            }}
           />
         </div>
         <div>
@@ -112,8 +198,12 @@ export function AthleteForm({ athlete }: Props) {
           </label>
           <input
             type="text"
+            inputMode="numeric"
             value={combinedPB}
-            onChange={(e) => setCombinedPB(e.target.value)}
+            onChange={(e) => {
+              const filtered = e.target.value.replace(/\D/g, '');
+              setCombinedPB(filtered);
+            }}
             placeholder="e.g. 9126"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -156,15 +246,20 @@ export function AthleteForm({ athlete }: Props) {
                 <label className="w-36 text-sm font-medium text-gray-700">{event.name}</label>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={personalBests[event.id] ?? ''}
-                  onChange={(e) =>
-                    setPersonalBests((prev) => ({ ...prev, [event.id]: e.target.value }))
-                  }
-                  placeholder={event.type === 'track' ? 'seconds or m:ss.xx' : 'meters'}
+                  onChange={(e) => {
+                    const filtered = filterPerformanceInput(
+                      e.target.value,
+                      event,
+                    );
+                    setPersonalBests((prev) => ({ ...prev, [event.id]: filtered }));
+                  }}
+                  placeholder={placeholder(event)}
                   className="w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-500 w-16">
-                  {event.type === 'track' ? 'sec' : 'm'}
+                  {event.type === 'track' ? (LONG_TRACK_IDS.has(event.id) ? 'm:ss' : 'sec') : 'm'}
                 </span>
                 {pts !== null && (
                   <span className="text-sm font-semibold text-blue-700">{pts} pts</span>
