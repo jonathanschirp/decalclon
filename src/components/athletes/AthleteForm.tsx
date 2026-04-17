@@ -95,6 +95,7 @@ export function AthleteForm({ athlete }: Props) {
   );
   const [combinedPB, setCombinedPB] = useState(athlete?.combinedPB != null ? String(athlete.combinedPB) : '');
   const [waAthleteId, setWaAthleteId] = useState<string | undefined>(athlete?.waAthleteId);
+  const [imported, setImported] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const events = getEventsForType(gender === 'male' ? 'decathlon' : 'heptathlon');
@@ -153,15 +154,39 @@ export function AthleteForm({ athlete }: Props) {
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
           <input
             type="text"
             required
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); setImported(false); }}
+            placeholder={!athlete ? 'Start typing to search World Athletics...' : ''}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          {!athlete && (
+            <AthleteSearch
+              query={name}
+              disabled={imported}
+              onImport={(data) => {
+                setName(data.name);
+                setNationality(data.nationality);
+                setGender(data.gender);
+                setWaAthleteId(data.waAthleteId);
+                setImported(true);
+                if (data.combinedPB != null) setCombinedPB(String(data.combinedPB));
+                const events = getEventsForType(data.gender === 'male' ? 'decathlon' : 'heptathlon');
+                const pbStrings: Record<string, string> = {};
+                for (const event of events) {
+                  const val = data.personalBests[event.id];
+                  if (val != null) {
+                    pbStrings[event.id] = event.type === 'track' ? formatTime(val) : String(val);
+                  }
+                }
+                setPersonalBests(pbStrings);
+              }}
+            />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender *</label>
@@ -218,30 +243,6 @@ export function AthleteForm({ athlete }: Props) {
           />
         </div>
       </div>
-
-      {!athlete && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">Import from World Athletics</h3>
-          <AthleteSearch
-            gender={gender}
-            onImport={(data) => {
-              setName(data.name);
-              setNationality(data.nationality);
-              setWaAthleteId(data.waAthleteId);
-              if (data.combinedPB != null) setCombinedPB(String(data.combinedPB));
-              const events = getEventsForType(gender === 'male' ? 'decathlon' : 'heptathlon');
-              const pbStrings: Record<string, string> = {};
-              for (const event of events) {
-                const val = data.personalBests[event.id];
-                if (val != null) {
-                  pbStrings[event.id] = event.type === 'track' ? formatTime(val) : String(val);
-                }
-              }
-              setPersonalBests(pbStrings);
-            }}
-          />
-        </div>
-      )}
 
       <div>
         <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">
