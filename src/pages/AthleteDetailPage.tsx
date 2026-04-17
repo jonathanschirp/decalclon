@@ -28,8 +28,8 @@ export function AthleteDetailPage() {
 
   const athlete = athletes.find((a) => a.id === id);
 
-  if (!loaded) return <div className="text-center py-12 text-gray-500">Loading...</div>;
-  if (!athlete) return <div className="text-center py-12 text-gray-500">Athlete not found.</div>;
+  if (!loaded) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>;
+  if (!athlete) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Athlete not found.</div>;
 
   if (isEdit) {
     return (

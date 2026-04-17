@@ -291,7 +291,7 @@ export function CompetitionSearch({ onImport }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
           placeholder="Search World Athletics competitions (e.g. Gotzis, Ratingen)"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -303,14 +303,14 @@ export function CompetitionSearch({ onImport }: Props) {
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {/* Competition results */}
       {step === 'search' && competitions.length > 0 && (
-        <div className="border border-gray-200 rounded-md overflow-hidden">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left">
+              <tr className="bg-gray-50 dark:bg-gray-800 text-left">
                 <th className="px-3 py-2 font-medium">Competition</th>
                 <th className="px-3 py-2 font-medium">Venue</th>
                 <th className="px-3 py-2 font-medium">Date</th>
@@ -319,10 +319,10 @@ export function CompetitionSearch({ onImport }: Props) {
             </thead>
             <tbody>
               {competitions.slice(0, 15).map((comp) => (
-                <tr key={comp.id} className="border-t border-gray-100 hover:bg-blue-50/50">
+                <tr key={comp.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
                   <td className="px-3 py-2 font-medium">{comp.name}</td>
-                  <td className="px-3 py-2 text-gray-500">{comp.venue}</td>
-                  <td className="px-3 py-2 text-gray-500">{comp.startDate}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{comp.venue}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{comp.startDate}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
@@ -342,8 +342,8 @@ export function CompetitionSearch({ onImport }: Props) {
 
       {/* Event selection (when multiple combined events) */}
       {step === 'events' && (
-        <div className="border border-gray-200 rounded-md p-4 space-y-2">
-          <p className="text-sm font-medium text-gray-700">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 space-y-2">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {selectedComp?.name} has multiple combined events. Select one:
           </p>
           <div className="flex gap-2">
@@ -364,11 +364,11 @@ export function CompetitionSearch({ onImport }: Props) {
 
       {/* Metadata-only import for future competitions */}
       {step === 'metadata-only' && selectedComp && (
-        <div className="border border-gray-200 rounded-md p-4 space-y-2">
-          <p className="text-sm font-medium text-gray-700">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 space-y-2">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {selectedComp.name} ({selectedComp.startDate}) — no results data available yet.
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Import competition metadata and select the event type. You can add athletes manually and sync results once the competition starts.
           </p>
           <div className="flex gap-2">
@@ -392,7 +392,7 @@ export function CompetitionSearch({ onImport }: Props) {
 
       {/* Loading state */}
       {loading && (
-        <p className="text-sm text-gray-500">Loading competition data...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading competition data...</p>
       )}
 
       {/* Athlete preview */}
@@ -400,10 +400,10 @@ export function CompetitionSearch({ onImport }: Props) {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {selectedComp?.name} — {selectedEvent?.name}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {existingCount} existing, {newCount} new athletes to create
               </p>
             </div>
@@ -417,9 +417,9 @@ export function CompetitionSearch({ onImport }: Props) {
             </button>
           </div>
 
-          <div className="border border-gray-200 rounded-md overflow-hidden max-h-80 overflow-y-auto">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden max-h-80 overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50">
+              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
                 <tr className="text-left">
                   <th className="px-3 py-2 w-8"></th>
                   <th className="px-3 py-2 font-medium">Athlete</th>
@@ -429,7 +429,7 @@ export function CompetitionSearch({ onImport }: Props) {
               </thead>
               <tbody>
                 {athleteRows.map((row, i) => (
-                  <tr key={row.iaafId} className="border-t border-gray-100">
+                  <tr key={row.iaafId} className="border-t border-gray-100 dark:border-gray-800">
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
@@ -442,9 +442,9 @@ export function CompetitionSearch({ onImport }: Props) {
                     <td className="px-3 py-2">{row.nationality}</td>
                     <td className="px-3 py-2">
                       {row.existingId ? (
-                        <span className="text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded">Exists</span>
+                        <span className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded">Exists</span>
                       ) : (
-                        <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded">New</span>
+                        <span className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">New</span>
                       )}
                     </td>
                   </tr>
@@ -457,8 +457,8 @@ export function CompetitionSearch({ onImport }: Props) {
 
       {/* Importing progress */}
       {step === 'importing' && (
-        <div className="border border-gray-200 rounded-md p-4">
-          <p className="text-sm text-gray-700">{importProgress || 'Importing...'}</p>
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">{importProgress || 'Importing...'}</p>
         </div>
       )}
     </div>

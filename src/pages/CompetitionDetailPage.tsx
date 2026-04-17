@@ -6,9 +6,14 @@ import { Scoreboard } from '../components/competitions/Scoreboard';
 import { MobileScoreboard } from '../components/competitions/MobileScoreboard';
 import { CompetitionForm } from '../components/competitions/CompetitionForm';
 
+const statusBadge: Record<string, string> = {
+  upcoming: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+  in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+};
 const statusLabels: Record<string, string> = {
   upcoming: 'Upcoming',
-  in_progress: 'In Progress',
+  in_progress: 'Live',
   completed: 'Completed',
 };
 
@@ -36,8 +41,8 @@ export function CompetitionDetailPage() {
     );
   }
 
-  if (!loaded) return <div className="text-center py-12 text-gray-500">Loading...</div>;
-  if (!current) return <div className="text-center py-12 text-gray-500">Competition not found.</div>;
+  if (!loaded) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>;
+  if (!current) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Competition not found.</div>;
 
   if (isEdit) {
     return (
@@ -54,12 +59,17 @@ export function CompetitionDetailPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold break-words">{current.name}</h1>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-sm text-gray-500">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold break-words">{current.name}</h1>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${statusBadge[current.status]}`}>
+              {statusLabels[current.status]}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
             <span>{current.date}</span>
             {current.location && <span>{current.location}</span>}
             <span className="capitalize">{current.type}</span>
-            <span className="font-medium">{statusLabels[current.status]}</span>
+            <span>{enrolledAthletes.length} athletes</span>
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -67,14 +77,14 @@ export function CompetitionDetailPage() {
             <button
               onClick={syncFromWA}
               disabled={syncing}
-              className="px-3 py-1.5 text-sm bg-slate-700 text-white rounded hover:bg-slate-800 disabled:opacity-50"
+              className="px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
             >
               {syncing ? 'Syncing...' : 'Sync from WA'}
             </button>
           )}
           <Link
             to={`/competitions/${current.id}?edit=true`}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Edit
           </Link>
@@ -82,9 +92,9 @@ export function CompetitionDetailPage() {
       </div>
 
       {enrolledAthletes.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           No athletes enrolled.{' '}
-          <Link to={`/competitions/${current.id}?edit=true`} className="text-blue-600 hover:underline">
+          <Link to={`/competitions/${current.id}?edit=true`} className="text-blue-600 dark:text-blue-400 hover:underline">
             Edit competition to add athletes.
           </Link>
         </div>

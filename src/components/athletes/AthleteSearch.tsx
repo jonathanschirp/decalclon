@@ -79,7 +79,7 @@ export function AthleteSearch({ gender, onImport }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
           placeholder="Search World Athletics (e.g. Kevin Mayer)"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -91,13 +91,13 @@ export function AthleteSearch({ gender, onImport }: Props) {
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {results.length > 0 && (
-        <div className="border border-gray-200 rounded-md overflow-hidden">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left">
+              <tr className="bg-gray-50 dark:bg-gray-800 text-left">
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Country</th>
                 <th className="px-3 py-2 font-medium">Born</th>
@@ -107,11 +107,11 @@ export function AthleteSearch({ gender, onImport }: Props) {
             </thead>
             <tbody>
               {results.map((r) => (
-                <tr key={r.aaAthleteId} className="border-t border-gray-100 hover:bg-blue-50/50">
+                <tr key={r.aaAthleteId} className="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
                   <td className="px-3 py-2 font-medium">{r.givenName} {r.familyName}</td>
                   <td className="px-3 py-2">{r.country}</td>
-                  <td className="px-3 py-2 text-gray-500">{r.birthDate ?? '—'}</td>
-                  <td className="px-3 py-2 text-gray-500 text-xs max-w-[200px] truncate">{r.disciplines}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{r.birthDate ?? '—'}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs max-w-[200px] truncate">{r.disciplines}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"

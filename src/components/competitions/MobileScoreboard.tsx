@@ -57,25 +57,25 @@ export function MobileScoreboard({
 
   const cellBg = (score: AthleteScore, event: EventDefinition): string => {
     const es = score.eventScores[event.id];
-    if (es?.isDNS) return 'bg-red-50 border-red-300';
-    if (!es || es.performance == null || !es.isActual) return 'bg-white';
+    if (es?.isDNS) return 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700';
+    if (!es || es.performance == null || !es.isActual) return 'bg-white dark:bg-gray-800';
     const athlete = athleteMap.get(score.athleteId);
     if (athlete && isPersonalBest(athlete, event.id, es.performance, event)) {
-      return 'bg-green-50 border-green-300';
+      return 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700';
     }
-    return 'bg-white';
+    return 'bg-white dark:bg-gray-800';
   };
 
   return (
     <div className="space-y-3">
       {/* Full-width segmented sort toggle */}
-      <div className="grid grid-cols-2 rounded-lg border border-gray-300 overflow-hidden text-sm">
+      <div className="grid grid-cols-2 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm">
         <button
           onClick={() => setSortMode('predicted')}
           className={`py-2 font-medium transition-colors ${
             sortMode === 'predicted'
               ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-600'
+              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
           }`}
         >
           Sort by Predicted
@@ -85,7 +85,7 @@ export function MobileScoreboard({
           className={`py-2 font-medium transition-colors ${
             sortMode === 'current'
               ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-600'
+              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
           }`}
         >
           Sort by Current
@@ -102,10 +102,10 @@ export function MobileScoreboard({
           return (
             <div
               key={score.athleteId}
-              className={`bg-white border rounded-lg overflow-hidden shadow-sm ${
+              className={`bg-white dark:bg-gray-900 border rounded-lg overflow-hidden shadow-sm ${
                 score.withdrawn
-                  ? 'border-red-200 opacity-60'
-                  : 'border-gray-200'
+                  ? 'border-red-200 dark:border-red-800 opacity-60'
+                  : 'border-gray-200 dark:border-gray-800'
               }`}
             >
               {/* Card header — tap to expand */}
@@ -114,7 +114,7 @@ export function MobileScoreboard({
                 onClick={() =>
                   setExpandedId(expanded ? null : score.athleteId)
                 }
-                className="w-full flex items-center gap-3 p-3 text-left active:bg-gray-50"
+                className="w-full flex items-center gap-3 p-3 text-left active:bg-gray-50 dark:active:bg-gray-800"
               >
                 {score.withdrawn ? (
                   <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-red-100 text-red-600">
@@ -128,16 +128,16 @@ export function MobileScoreboard({
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className={`font-semibold truncate ${score.withdrawn ? 'line-through text-gray-500' : ''}`}>
+                  <div className={`font-semibold truncate ${score.withdrawn ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
                     {score.athleteName}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {completedCount}/{events.length} events completed
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
                   {score.withdrawn ? (
-                    <div className="text-base font-semibold text-gray-400 leading-tight">
+                    <div className="text-base font-semibold text-gray-400 dark:text-gray-500 leading-tight">
                       {score.totalActualPoints}
                     </div>
                   ) : (
@@ -145,8 +145,8 @@ export function MobileScoreboard({
                       <div
                         className={
                           sortMode === 'predicted'
-                            ? 'text-xl font-bold text-blue-900 leading-tight'
-                            : 'text-base font-semibold text-gray-900 leading-tight'
+                            ? 'text-xl font-bold text-blue-900 dark:text-blue-300 leading-tight'
+                            : 'text-base font-semibold text-gray-900 dark:text-gray-100 leading-tight'
                         }
                       >
                         {score.predictedFinalScore}
@@ -154,8 +154,8 @@ export function MobileScoreboard({
                       <div
                         className={
                           sortMode === 'current'
-                            ? 'text-sm font-bold text-blue-700'
-                            : 'text-xs text-gray-500'
+                            ? 'text-sm font-bold text-blue-700 dark:text-blue-400'
+                            : 'text-xs text-gray-500 dark:text-gray-400'
                         }
                       >
                         {score.totalActualPoints} current
@@ -180,7 +180,7 @@ export function MobileScoreboard({
 
               {/* Expanded area — event grid */}
               {expanded && (
-                <div className="border-t border-gray-200 bg-gray-50 p-3 grid grid-cols-2 gap-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 grid grid-cols-2 gap-2">
                   {events.map((event) => {
                     const es = score.eventScores[event.id];
                     const isCurrent = currentEvent?.id === event.id;
@@ -192,9 +192,9 @@ export function MobileScoreboard({
                       return (
                         <div
                           key={event.id}
-                          className="col-span-2 bg-white p-3 rounded border-2 border-blue-500"
+                          className="col-span-2 bg-white dark:bg-gray-800 p-3 rounded border-2 border-blue-500"
                         >
-                          <div className="text-xs font-semibold uppercase text-gray-600 mb-2">
+                          <div className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-2">
                             {event.name}
                           </div>
                           <PerformanceInput
@@ -223,12 +223,12 @@ export function MobileScoreboard({
                           onClick={() =>
                             setEditingCell({ athleteId: score.athleteId, eventId: event.id })
                           }
-                          className="relative p-2 rounded border border-red-300 bg-red-50 cursor-pointer active:bg-red-100"
+                          className="relative p-2 rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 cursor-pointer active:bg-red-100 dark:active:bg-red-900/50"
                         >
-                          <div className="text-[10px] font-semibold uppercase text-gray-500 truncate">
+                          <div className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">
                             {event.name}
                           </div>
-                          <div className="text-sm font-bold text-red-500">DNS</div>
+                          <div className="text-sm font-bold text-red-500 dark:text-red-400">DNS</div>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -250,22 +250,22 @@ export function MobileScoreboard({
                         onClick={() =>
                           setEditingCell({ athleteId: score.athleteId, eventId: event.id })
                         }
-                        className={`relative p-2 rounded border cursor-pointer active:bg-gray-100 ${
-                          isCurrent ? 'border-blue-500 ring-1 ring-blue-200' : 'border-gray-200'
+                        className={`relative p-2 rounded border cursor-pointer active:bg-gray-100 dark:active:bg-gray-700 ${
+                          isCurrent ? 'border-blue-500 ring-1 ring-blue-200 dark:ring-blue-800' : 'border-gray-200 dark:border-gray-700'
                         } ${cellBg(score, event)}`}
                       >
-                        <div className="text-[10px] font-semibold uppercase text-gray-500 truncate">
+                        <div className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">
                           {event.name}
                         </div>
                         {es && es.performance != null ? (
                           <>
                             <div
-                              className={`text-sm ${es.isActual ? 'font-semibold text-gray-900' : 'italic text-gray-400'}`}
+                              className={`text-sm ${es.isActual ? 'font-semibold text-gray-900 dark:text-gray-100' : 'italic text-gray-400 dark:text-gray-500'}`}
                             >
                               {formatPerformance(event, es.performance)}
                             </div>
                             <div
-                              className={`text-xs ${es.isActual ? 'text-gray-600' : 'text-gray-400'}`}
+                              className={`text-xs ${es.isActual ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}
                             >
                               {es.points} pts
                             </div>
@@ -284,7 +284,7 @@ export function MobileScoreboard({
                             )}
                           </>
                         ) : (
-                          <div className="text-sm text-gray-300">—</div>
+                          <div className="text-sm text-gray-300 dark:text-gray-600">—</div>
                         )}
                       </div>
                     );

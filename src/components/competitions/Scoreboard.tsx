@@ -90,13 +90,13 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
-        <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+        <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm">
           <button
             onClick={() => setSortMode('predicted')}
             className={`px-3 py-1.5 font-medium transition-colors ${
               sortMode === 'predicted'
                 ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             Predicted
@@ -106,7 +106,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
             className={`px-3 py-1.5 font-medium transition-colors ${
               sortMode === 'current'
                 ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             Current
@@ -114,7 +114,8 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Table stays light-themed for data readability in both modes */}
+      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white text-gray-900">
         <table className="text-sm border-collapse min-w-full">
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-800 text-white">

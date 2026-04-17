@@ -163,43 +163,43 @@ export function CompetitionForm({ competition }: Props) {
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
       {!competition && (
         <div>
-          <h3 className="text-lg font-semibold mb-3">Import from World Athletics</h3>
+          <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">Import from World Athletics</h3>
           <CompetitionSearch onImport={handleImport} />
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
           <input
             type="date"
             required
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
           <input
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
           <select
             value={type}
             onChange={(e) => {
@@ -207,7 +207,7 @@ export function CompetitionForm({ competition }: Props) {
               setSelectedAthletes([]);
             }}
             disabled={!!competition}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="decathlon">Decathlon (Men)</option>
             <option value="heptathlon">Heptathlon (Women)</option>
@@ -215,11 +215,11 @@ export function CompetitionForm({ competition }: Props) {
         </div>
         {competition && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as CompetitionStatus)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="upcoming">Upcoming</option>
               <option value="in_progress">In Progress</option>
@@ -232,9 +232,9 @@ export function CompetitionForm({ competition }: Props) {
       {/* Athlete enrollment section */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">
+          <h3 className="text-lg font-semibold dark:text-gray-100">
             Athletes
-            <span className="text-sm font-normal text-gray-500 ml-2">
+            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
               {selectedAthletes.length} selected
             </span>
           </h3>
@@ -251,7 +251,7 @@ export function CompetitionForm({ competition }: Props) {
         </div>
 
         {reloading && reloadProgress && (
-          <div className="mb-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
+          <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-3 py-2">
             {reloadProgress}
           </div>
         )}
@@ -266,18 +266,18 @@ export function CompetitionForm({ competition }: Props) {
         />
 
         {eligibleAthletes.length === 0 ? (
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
             No {type === 'decathlon' ? 'male' : 'female'} athletes available.
           </p>
         ) : (
-          <div className="border border-gray-200 rounded-md overflow-hidden">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
             {/* Selected athletes */}
             {selectedList.length > 0 && (
-              <div className="bg-blue-50/50">
+              <div className="bg-blue-50/50 dark:bg-blue-900/20">
                 {selectedList.map((athlete) => (
                   <label
                     key={athlete.id}
-                    className="flex items-center gap-3 px-3 py-2.5 border-b border-blue-100 last:border-b-0 hover:bg-blue-50 cursor-pointer"
+                    className="flex items-center gap-3 px-3 py-2.5 border-b border-blue-100 dark:border-blue-900/40 last:border-b-0 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -287,13 +287,13 @@ export function CompetitionForm({ competition }: Props) {
                     />
                     <span className="text-sm font-medium flex-1 min-w-0 truncate">{athlete.name}</span>
                     {athlete.nationality && (
-                      <span className="text-xs text-gray-500 shrink-0">{athlete.nationality}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{athlete.nationality}</span>
                     )}
                     {athlete.combinedPB != null && (
-                      <span className="text-xs font-mono font-semibold text-blue-700 shrink-0">{athlete.combinedPB}</span>
+                      <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400 shrink-0">{athlete.combinedPB}</span>
                     )}
                     {athlete.waAthleteId && (
-                      <span className="text-[10px] text-slate-400 shrink-0" title="Linked to World Athletics">WA</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0" title="Linked to World Athletics">WA</span>
                     )}
                   </label>
                 ))}
@@ -302,7 +302,7 @@ export function CompetitionForm({ competition }: Props) {
 
             {/* Divider between selected and unselected */}
             {selectedList.length > 0 && unselectedList.length > 0 && (
-              <div className="border-t-2 border-gray-300" />
+              <div className="border-t-2 border-gray-300 dark:border-gray-600" />
             )}
 
             {/* Unselected athletes */}
@@ -311,7 +311,7 @@ export function CompetitionForm({ competition }: Props) {
                 {unselectedList.map((athlete) => (
                   <label
                     key={athlete.id}
-                    className="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                    className="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -321,13 +321,13 @@ export function CompetitionForm({ competition }: Props) {
                     />
                     <span className="text-sm flex-1 min-w-0 truncate">{athlete.name}</span>
                     {athlete.nationality && (
-                      <span className="text-xs text-gray-400 shrink-0">{athlete.nationality}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{athlete.nationality}</span>
                     )}
                     {athlete.combinedPB != null && (
-                      <span className="text-xs font-mono text-gray-400 shrink-0">{athlete.combinedPB}</span>
+                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">{athlete.combinedPB}</span>
                     )}
                     {athlete.waAthleteId && (
-                      <span className="text-[10px] text-slate-300 shrink-0" title="Linked to World Athletics">WA</span>
+                      <span className="text-[10px] text-slate-300 dark:text-slate-600 shrink-0" title="Linked to World Athletics">WA</span>
                     )}
                   </label>
                 ))}
@@ -335,7 +335,7 @@ export function CompetitionForm({ competition }: Props) {
             )}
 
             {filterBySearch.length === 0 && athleteSearch.trim() && (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
                 No athletes match "{athleteSearch}"
               </div>
             )}
@@ -354,7 +354,7 @@ export function CompetitionForm({ competition }: Props) {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
         >
           Cancel
         </button>

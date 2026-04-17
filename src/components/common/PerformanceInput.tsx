@@ -55,7 +55,7 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
           }}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="flex-1 sm:flex-none sm:w-28 min-w-0 px-2 py-2 sm:py-1 text-base sm:text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 sm:flex-none sm:w-28 min-w-0 px-2 py-2 sm:py-1 text-base sm:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           onClick={handleSubmit}
@@ -76,16 +76,16 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
         {onCancel && (
           <button
             onClick={onCancel}
-            className="px-3 py-2 sm:py-1 text-sm sm:text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            className="px-3 py-2 sm:py-1 text-sm sm:text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
           >
             ✕
           </button>
         )}
       </div>
       {points !== null && (
-        <span className="text-xs text-green-700 font-medium">{points} pts</span>
+        <span className="text-xs text-green-700 dark:text-green-400 font-medium">{points} pts</span>
       )}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
     </div>
   );
 }

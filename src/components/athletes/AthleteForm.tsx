@@ -154,17 +154,17 @@ export function AthleteForm({ athlete }: Props) {
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender *</label>
           <select
             value={gender}
             onChange={(e) => {
@@ -172,14 +172,14 @@ export function AthleteForm({ athlete }: Props) {
               setPersonalBests({});
             }}
             disabled={!!athlete}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="male">Male (Decathlon)</option>
             <option value="female">Female (Heptathlon)</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nationality</label>
           <Select
             options={countryOptions}
             value={selectedCountry}
@@ -187,13 +187,22 @@ export function AthleteForm({ athlete }: Props) {
             isClearable
             placeholder="Search country..."
             classNames={{
-              control: () => '!min-h-[42px] !border-gray-300 !rounded-md !shadow-none focus-within:!ring-2 focus-within:!ring-blue-500 focus-within:!border-blue-500',
-              menu: () => '!z-20',
+              control: () => '!min-h-[42px] !border-gray-300 dark:!border-gray-600 !bg-white dark:!bg-gray-800 !rounded-md !shadow-none focus-within:!ring-2 focus-within:!ring-blue-500 focus-within:!border-blue-500',
+              menu: () => '!z-20 !bg-white dark:!bg-gray-800 !border-gray-200 dark:!border-gray-700',
+              option: ({ isFocused, isSelected }) =>
+                isSelected
+                  ? '!bg-blue-600 !text-white'
+                  : isFocused
+                    ? '!bg-blue-50 dark:!bg-gray-700 !text-gray-900 dark:!text-gray-100'
+                    : '!text-gray-900 dark:!text-gray-100',
+              singleValue: () => '!text-gray-900 dark:!text-gray-100',
+              input: () => '!text-gray-900 dark:!text-gray-100',
+              placeholder: () => '!text-gray-400 dark:!text-gray-500',
             }}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {gender === 'male' ? 'Decathlon' : 'Heptathlon'} PB
           </label>
           <input
@@ -205,14 +214,14 @@ export function AthleteForm({ athlete }: Props) {
               setCombinedPB(filtered);
             }}
             placeholder="e.g. 9126"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
 
       {!athlete && (
         <div>
-          <h3 className="text-lg font-semibold mb-3">Import from World Athletics</h3>
+          <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">Import from World Athletics</h3>
           <AthleteSearch
             gender={gender}
             onImport={(data) => {
@@ -235,7 +244,7 @@ export function AthleteForm({ athlete }: Props) {
       )}
 
       <div>
-        <h3 className="text-lg font-semibold mb-3">
+        <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">
           Personal Bests — {gender === 'male' ? 'Decathlon' : 'Heptathlon'}
         </h3>
         <div className="space-y-2">
@@ -243,7 +252,7 @@ export function AthleteForm({ athlete }: Props) {
             const pts = getPoints(event.id);
             return (
               <div key={event.id} className="flex items-center gap-3">
-                <label className="w-36 text-sm font-medium text-gray-700">{event.name}</label>
+                <label className="w-36 text-sm font-medium text-gray-700 dark:text-gray-300">{event.name}</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -256,13 +265,13 @@ export function AthleteForm({ athlete }: Props) {
                     setPersonalBests((prev) => ({ ...prev, [event.id]: filtered }));
                   }}
                   placeholder={placeholder(event)}
-                  className="w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-40 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-500 w-16">
+                <span className="text-sm text-gray-500 dark:text-gray-400 w-16">
                   {event.type === 'track' ? (LONG_TRACK_IDS.has(event.id) ? 'm:ss' : 'sec') : 'm'}
                 </span>
                 {pts !== null && (
-                  <span className="text-sm font-semibold text-blue-700">{pts} pts</span>
+                  <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">{pts} pts</span>
                 )}
               </div>
             );
@@ -281,7 +290,7 @@ export function AthleteForm({ athlete }: Props) {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
         >
           Cancel
         </button>

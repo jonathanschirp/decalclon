@@ -8,9 +8,15 @@ import { CompetitionsPage } from './pages/CompetitionsPage';
 import { CompetitionDetailPage } from './pages/CompetitionDetailPage';
 import { LoginPage } from './pages/LoginPage';
 import { useAuth } from './hooks/useAuth';
+import { useTheme } from './hooks/useTheme';
 
 function App() {
   const { user, loading, listen } = useAuth();
+  const { init } = useTheme();
+
+  useEffect(() => {
+    init();
+  }, [init]);
 
   useEffect(() => {
     const unsubscribe = listen();
@@ -19,8 +25,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <p className="text-gray-500 dark:text-gray-400">Loading...</p>
       </div>
     );
   }
@@ -31,7 +37,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
         <Navbar />
         <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <Routes>
