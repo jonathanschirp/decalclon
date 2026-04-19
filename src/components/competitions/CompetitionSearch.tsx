@@ -235,8 +235,8 @@ export function CompetitionSearch({ onImport }: Props) {
           gender,
           nationality: row.nationality,
           personalBests: pbs,
-          combinedPB,
-          waAthleteId,
+          ...(combinedPB != null && { combinedPB }),
+          ...(waAthleteId != null && { waAthleteId }),
         });
 
         iaafIdToAthleteId[String(row.iaafId)] = id;
