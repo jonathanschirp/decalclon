@@ -20,7 +20,9 @@ export function AthleteDetailPage() {
   if (isNew) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">New Athlete</h1>
+        <h1 className="display" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 24 }}>
+          New Athlete
+        </h1>
         <AthleteForm />
       </div>
     );
@@ -28,13 +30,15 @@ export function AthleteDetailPage() {
 
   const athlete = athletes.find((a) => a.id === id);
 
-  if (!loaded) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>;
-  if (!athlete) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Athlete not found.</div>;
+  if (!loaded) return <div className="text-center py-12" style={{ color: 'var(--muted)' }}>Loading...</div>;
+  if (!athlete) return <div className="text-center py-12" style={{ color: 'var(--muted)' }}>Athlete not found.</div>;
 
   if (isEdit) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">Edit Athlete</h1>
+        <h1 className="display" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', marginBottom: 24 }}>
+          Edit Athlete
+        </h1>
         <AthleteForm athlete={athlete} />
       </div>
     );

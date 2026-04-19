@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { Competition, Athlete, AthleteScore, EventDefinition } from '../../types';
+import type { Competition, Athlete, AthleteScore } from '../../types';
 import { getEventsForType } from '../../lib/events';
 import { formatPerformance } from '../../lib/scoring';
 import { calculatePredictedScores, getCurrentEvent, isPersonalBest, DNS_MARK } from '../../lib/predictions';
@@ -14,12 +14,13 @@ interface Props {
   onResultReset: (athleteId: string, eventId: string) => void;
 }
 
-function positionBadge(pos: number): string {
-  if (pos === 1) return 'bg-yellow-400 text-yellow-900';
-  if (pos === 2) return 'bg-gray-300 text-gray-800';
-  if (pos === 3) return 'bg-orange-300 text-orange-900';
-  return 'bg-slate-200 text-slate-700';
-}
+const EVENT_CODES: Record<string, string> = {
+  dec_100m: '100M', dec_long_jump: 'LJ', dec_shot_put: 'SP', dec_high_jump: 'HJ',
+  dec_400m: '400M', dec_110m_hurdles: '110H', dec_discus: 'DT', dec_pole_vault: 'PV',
+  dec_javelin: 'JT', dec_1500m: '1500',
+  hep_100m_hurdles: '100H', hep_high_jump: 'HJ', hep_shot_put: 'SP', hep_200m: '200M',
+  hep_long_jump: 'LJ', hep_javelin: 'JT', hep_800m: '800M',
+};
 
 function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
   const sorted = [...scores].sort((a, b) => {
@@ -33,6 +34,13 @@ function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
     score.position = score.withdrawn ? 0 : pos++;
   });
   return sorted;
+}
+
+function medalStripeColor(pos: number): string | undefined {
+  if (pos === 1) return 'var(--gold)';
+  if (pos === 2) return 'var(--silver)';
+  if (pos === 3) return 'var(--bronze)';
+  return undefined;
 }
 
 export function MobileScoreboard({
@@ -54,147 +62,195 @@ export function MobileScoreboard({
 
   const scores = useMemo(() => sortAndRank(baseScores, sortMode), [baseScores, sortMode]);
   const athleteMap = useMemo(() => new Map(athletes.map((a) => [a.id, a])), [athletes]);
+  const maxPredicted = useMemo(() => Math.max(...scores.map((s) => s.predictedFinalScore)), [scores]);
 
-  const cellBg = (score: AthleteScore, event: EventDefinition): string => {
-    const es = score.eventScores[event.id];
-    if (es?.isDNS) return 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700';
-    if (!es || es.performance == null || !es.isActual) return 'bg-white dark:bg-gray-800';
-    const athlete = athleteMap.get(score.athleteId);
-    if (athlete && isPersonalBest(athlete, event.id, es.performance, event)) {
-      return 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700';
+  const completedCount = (score: AthleteScore) =>
+    events.filter((e) => score.eventScores[e.id]?.isActual).length;
+
+  // Rank per-event for WIN tags
+  const eventRanks = useMemo(() => {
+    const evs = getEventsForType(competition.type);
+    const map: Record<string, Map<string, number>> = {};
+    for (const e of evs) {
+      const ranked = scores
+        .filter((s) => s.eventScores[e.id]?.isActual && !s.eventScores[e.id]?.isDNS)
+        .sort((a, b) => b.eventScores[e.id].points - a.eventScores[e.id].points);
+      const m = new Map<string, number>();
+      ranked.forEach((s, i) => m.set(s.athleteId, i + 1));
+      map[e.id] = m;
     }
-    return 'bg-white dark:bg-gray-800';
-  };
+    return map;
+  }, [scores, competition.type]);
 
   return (
-    <div className="space-y-3">
-      {/* Full-width segmented sort toggle */}
-      <div className="grid grid-cols-2 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm">
-        <button
-          onClick={() => setSortMode('predicted')}
-          className={`py-2 font-medium transition-colors ${
-            sortMode === 'predicted'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
-          }`}
+    <div className="flex flex-col gap-0">
+      {/* Current event strip — dark bar */}
+      {currentEvent && (
+        <div
+          className="flex items-center justify-between"
+          style={{ padding: '10px 14px', background: 'var(--ink)', color: '#fff' }}
         >
-          Sort by Predicted
-        </button>
-        <button
-          onClick={() => setSortMode('current')}
-          className={`py-2 font-medium transition-colors ${
-            sortMode === 'current'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400'
-          }`}
-        >
-          Sort by Current
-        </button>
+          <div>
+            <div className="micro" style={{ color: 'rgba(255,255,255,.5)', letterSpacing: '.12em' }}>
+              NOW · {String(currentEvent.order).padStart(2, '0')} OF {events.length}
+            </div>
+            <div className="num" style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>
+              {currentEvent.name}
+            </div>
+          </div>
+          <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--live)' }} />
+        </div>
+      )}
+
+      {/* Sort toggle */}
+      <div className="flex gap-1.5" style={{ padding: '10px 12px', background: 'var(--bg)', borderBottom: '1px solid var(--line)' }}>
+        {(['predicted', 'current'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setSortMode(mode)}
+            style={{
+              flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 600,
+              border: sortMode === mode ? '1px solid var(--ink)' : '1px solid var(--line)',
+              background: sortMode === mode ? 'var(--ink)' : '#fff',
+              color: sortMode === mode ? '#fff' : 'var(--ink-2)',
+              borderRadius: 8, cursor: 'pointer',
+            }}
+          >
+            {mode === 'predicted' ? 'Predicted' : 'Current'}
+          </button>
+        ))}
       </div>
 
-      <div className="space-y-2">
+      {/* Cards list */}
+      <div className="flex flex-col gap-1.5" style={{ padding: 10 }}>
         {scores.map((score) => {
           const expanded = expandedId === score.athleteId;
-          const completedCount = events.filter(
-            (e) => score.eventScores[e.id]?.isActual,
-          ).length;
+          const done = completedCount(score);
+          const stripe = medalStripeColor(score.position);
+          const gap = score.position === 1 ? 0 : maxPredicted - score.predictedFinalScore;
 
           return (
             <div
               key={score.athleteId}
-              className={`bg-white dark:bg-gray-900 border rounded-lg overflow-hidden shadow-sm ${
-                score.withdrawn
-                  ? 'border-red-200 dark:border-red-800 opacity-60'
-                  : 'border-gray-200 dark:border-gray-800'
-              }`}
+              style={{
+                background: '#fff',
+                border: '1px solid var(--line)',
+                borderLeft: stripe ? `3px solid ${stripe}` : '1px solid var(--line)',
+                borderRadius: 8,
+                overflow: 'hidden',
+                opacity: score.withdrawn ? 0.55 : 1,
+              }}
             >
-              {/* Card header — tap to expand */}
+              {/* Card header */}
               <button
                 type="button"
-                onClick={() =>
-                  setExpandedId(expanded ? null : score.athleteId)
-                }
-                className="w-full flex items-center gap-3 p-3 text-left active:bg-gray-50 dark:active:bg-gray-800"
+                onClick={() => setExpandedId(expanded ? null : score.athleteId)}
+                className="w-full text-left"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '28px 1fr auto 14px',
+                  gap: 10,
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
+                {/* Position */}
                 {score.withdrawn ? (
-                  <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-red-100 text-red-600">
-                    DNF
-                  </div>
+                  <span className="num" style={{ fontSize: 11, fontWeight: 700, color: 'var(--live)' }}>DNF</span>
                 ) : (
-                  <div
-                    className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base ${positionBadge(score.position)}`}
+                  <span
+                    className="num inline-flex items-center justify-center"
+                    style={{
+                      width: 26, height: 26, fontSize: 12, fontWeight: 700,
+                      background: score.position <= 3 ? medalStripeColor(score.position) : '#fff',
+                      color: score.position <= 3 ? '#fff' : 'var(--ink)',
+                      border: `1px solid ${score.position <= 3 ? medalStripeColor(score.position) : 'var(--line)'}`,
+                      borderRadius: 6,
+                    }}
                   >
                     {score.position}
-                  </div>
+                  </span>
                 )}
-                <div className="flex-1 min-w-0">
-                  <div className={`font-semibold truncate ${score.withdrawn ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+
+                {/* Name + metadata */}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14, fontWeight: 600,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      textDecoration: score.withdrawn ? 'line-through' : 'none',
+                    }}
+                  >
                     {score.athleteName}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {completedCount}/{events.length} events completed
+                  <div className="mono" style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 6 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{done}</span>
+                    <span style={{ color: 'var(--muted-2)' }}>/{events.length}</span>
                   </div>
                 </div>
-                <div className="shrink-0 text-right">
+
+                {/* Scores */}
+                <div style={{ textAlign: 'right', lineHeight: 1 }}>
                   {score.withdrawn ? (
-                    <div className="text-base font-semibold text-gray-400 dark:text-gray-500 leading-tight">
-                      {score.totalActualPoints}
-                    </div>
+                    <span className="num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--muted-2)' }}>—</span>
                   ) : (
                     <>
-                      <div
-                        className={
-                          sortMode === 'predicted'
-                            ? 'text-xl font-bold text-blue-900 dark:text-blue-300 leading-tight'
-                            : 'text-base font-semibold text-gray-900 dark:text-gray-100 leading-tight'
-                        }
-                      >
+                      <div className="num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>
                         {score.predictedFinalScore}
                       </div>
-                      <div
-                        className={
-                          sortMode === 'current'
-                            ? 'text-sm font-bold text-blue-700 dark:text-blue-400'
-                            : 'text-xs text-gray-500 dark:text-gray-400'
-                        }
-                      >
-                        {score.totalActualPoints} current
+                      <div className="tnum" style={{ fontSize: 10, marginTop: 3, color: score.position === 1 ? 'var(--pb)' : 'var(--muted)', fontWeight: 600 }}>
+                        {score.position === 1 ? 'LEADER' : `−${gap}`}
+                        {' · '}
+                        <span style={{ color: 'var(--muted-2)' }}>{score.totalActualPoints} now</span>
                       </div>
                     </>
                   )}
                 </div>
+
+                {/* Chevron */}
                 <svg
-                  className={`shrink-0 w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                  width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s', color: 'var(--muted-2)' }}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </button>
 
-              {/* Expanded area — event grid */}
+              {/* Expanded event grid */}
               {expanded && (
-                <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 grid grid-cols-2 gap-2">
+                <div
+                  style={{
+                    borderTop: '1px solid var(--line)',
+                    background: 'var(--bg)',
+                    padding: 10,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 6,
+                  }}
+                >
                   {events.map((event) => {
                     const es = score.eventScores[event.id];
                     const isCurrent = currentEvent?.id === event.id;
                     const isEditing =
                       editingCell?.athleteId === score.athleteId &&
                       editingCell?.eventId === event.id;
+                    const athlete = athleteMap.get(score.athleteId);
+                    const isPB = athlete && es?.isActual && es.performance != null && !es.isDNS &&
+                      isPersonalBest(athlete, event.id, es.performance, event);
+                    const rank = eventRanks[event.id]?.get(score.athleteId);
+                    const isWin = rank === 1 && es?.isActual && !isPB;
 
                     if (isEditing) {
                       return (
                         <div
                           key={event.id}
-                          className="col-span-2 bg-white dark:bg-gray-800 p-3 rounded border-2 border-blue-500"
+                          className="col-span-2"
+                          style={{ background: '#fff', padding: 12, borderRadius: 6, border: '2px solid var(--brand)' }}
                         >
-                          <div className="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400 mb-2">
+                          <div className="micro" style={{ color: 'var(--muted)', marginBottom: 8 }}>
                             {event.name}
                           </div>
                           <PerformanceInput
@@ -220,23 +276,22 @@ export function MobileScoreboard({
                       return (
                         <div
                           key={event.id}
-                          onClick={() =>
-                            setEditingCell({ athleteId: score.athleteId, eventId: event.id })
-                          }
-                          className="relative p-2 rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 cursor-pointer active:bg-red-100 dark:active:bg-red-900/50"
+                          onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
+                          style={{
+                            position: 'relative', padding: '7px 9px', borderRadius: 6,
+                            border: '1px solid var(--live)', background: 'var(--live-soft)', cursor: 'pointer',
+                          }}
                         >
-                          <div className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">
-                            {event.name}
+                          <div className="micro" style={{ color: 'var(--muted-2)' }}>
+                            {String(event.order).padStart(2, '0')}
                           </div>
-                          <div className="text-sm font-bold text-red-500 dark:text-red-400">DNS</div>
+                          <div className="num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--live)', marginTop: 3 }}>DNS</div>
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onResultReset(score.athleteId, event.id);
-                            }}
-                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs text-gray-400 active:text-red-600 active:bg-red-50 rounded"
-                            aria-label="Reset to PB"
+                            onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
+                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs rounded"
+                            style={{ color: 'var(--muted-2)' }}
+                            aria-label="Reset"
                           >
                             ✕
                           </button>
@@ -247,44 +302,46 @@ export function MobileScoreboard({
                     return (
                       <div
                         key={event.id}
-                        onClick={() =>
-                          setEditingCell({ athleteId: score.athleteId, eventId: event.id })
-                        }
-                        className={`relative p-2 rounded border cursor-pointer active:bg-gray-100 dark:active:bg-gray-700 ${
-                          isCurrent ? 'border-blue-500 ring-1 ring-blue-200 dark:ring-blue-800' : 'border-gray-200 dark:border-gray-700'
-                        } ${cellBg(score, event)}`}
+                        onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
+                        className={!es?.isActual ? 'diag-stripe' : ''}
+                        style={{
+                          position: 'relative', padding: '7px 9px', borderRadius: 6, cursor: 'pointer',
+                          border: isCurrent ? '1px solid var(--live)' : '1px solid var(--line)',
+                          background: isPB ? 'var(--pb-soft)' : '#fff',
+                        }}
                       >
-                        <div className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400 truncate">
-                          {event.name}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className="micro" style={{ color: isCurrent ? 'var(--live)' : 'var(--muted-2)' }}>
+                            {String(event.order).padStart(2, '0')} · {EVENT_CODES[event.id] || event.name}
+                          </span>
+                          {isCurrent && <span className="micro" style={{ color: 'var(--live)', fontWeight: 700 }}>LIVE</span>}
+                          {isWin && <span className="micro" style={{ color: 'var(--gold)', fontWeight: 700 }}>#1</span>}
+                          {isPB && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700 }}>PB↑</span>}
                         </div>
-                        {es && es.performance != null ? (
-                          <>
-                            <div
-                              className={`text-sm ${es.isActual ? 'font-semibold text-gray-900 dark:text-gray-100' : 'italic text-gray-400 dark:text-gray-500'}`}
-                            >
-                              {formatPerformance(event, es.performance)}
-                            </div>
-                            <div
-                              className={`text-xs ${es.isActual ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}
-                            >
-                              {es.points} pts
-                            </div>
-                            {es.isActual && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onResultReset(score.athleteId, event.id);
-                                }}
-                                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs text-gray-400 active:text-red-600 active:bg-red-50 rounded"
-                                aria-label="Reset to PB"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-sm text-gray-300 dark:text-gray-600">—</div>
+                        <div className="num" style={{
+                          fontSize: 14, fontWeight: 700, marginTop: 3,
+                          color: es?.isActual ? 'var(--ink)' : 'var(--muted)',
+                          fontStyle: es?.isActual ? 'normal' : 'italic',
+                        }}>
+                          {es && es.performance != null ? formatPerformance(event, es.performance) : '—'}
+                        </div>
+                        <div className="tnum" style={{
+                          fontSize: 10, marginTop: 1,
+                          color: es?.isActual ? 'var(--muted)' : 'var(--muted-2)',
+                        }}>
+                          {es?.points ?? 0} pts
+                          {!es?.isActual && es?.performance != null && <span style={{ marginLeft: 4 }}>· PB</span>}
+                        </div>
+                        {es?.isActual && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
+                            className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center text-xs rounded"
+                            style={{ color: 'var(--muted-2)' }}
+                            aria-label="Reset"
+                          >
+                            ✕
+                          </button>
                         )}
                       </div>
                     );

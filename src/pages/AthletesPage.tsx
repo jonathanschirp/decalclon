@@ -26,37 +26,67 @@ export function AthletesPage() {
     return true;
   });
 
+  const decCount = athletes.filter((a) => a.gender === 'male').length;
+  const hepCount = athletes.filter((a) => a.gender === 'female').length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold">Athletes</h1>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>02 · ATHLETES</div>
+          <h1 className="display" style={{ fontSize: 36, fontWeight: 700, margin: 0, letterSpacing: '-.025em' }}>
+            Roster
+          </h1>
+          <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
+            <span className="tnum" style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{athletes.length}</span> athletes ·{' '}
+            {decCount} decathletes · {hepCount} heptathletes
+          </div>
+        </div>
         <Link
           to="/athletes/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+          style={{ background: 'var(--ink)', color: '#fff' }}
         >
-          Add Athlete
+          + Add Athlete
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
+      {/* Filter bar */}
+      <div
+        className="flex items-center gap-2.5"
+        style={{
+          padding: 10, border: '1px solid var(--line)',
+          borderRadius: 10, background: 'var(--surface)',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--muted-2)', marginLeft: 4 }}>
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+          <path d="m20 20-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or nationality..."
-          className="flex-1 px-3 py-2 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Search by name or country..."
+          className="flex-1 text-sm"
+          style={{
+            border: 'none', outline: 'none', background: 'transparent',
+            fontFamily: 'inherit', color: 'var(--ink)',
+          }}
         />
-        <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm shrink-0">
+        <div className="flex gap-1" style={{ background: 'var(--bg)', padding: 3, borderRadius: 8 }}>
           {([['all', 'All'], ['male', 'Decathlon'], ['female', 'Heptathlon']] as const).map(
             ([value, label]) => (
               <button
                 key={value}
                 onClick={() => setDiscipline(value)}
-                className={`px-3 py-2 font-medium transition-colors ${
-                  discipline === value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
+                style={{
+                  padding: '4px 10px', fontSize: 12, fontWeight: 600,
+                  background: discipline === value ? 'var(--ink)' : 'transparent',
+                  color: discipline === value ? '#fff' : 'var(--muted)',
+                  border: 'none', borderRadius: 6, cursor: 'pointer',
+                }}
               >
                 {label}
               </button>
@@ -66,11 +96,11 @@ export function AthletesPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-center py-12" style={{ color: 'var(--muted)' }}>Loading...</div>
       ) : (
         <>
           {athletes.length > 0 && filtered.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
               No athletes match your search.
             </div>
           ) : (

@@ -11,19 +11,25 @@ export function CompetitionsPage() {
   }, [fetch]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold">Competitions</h1>
+        <div>
+          <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>01 · COMPETITIONS</div>
+          <h1 className="display" style={{ fontSize: 36, fontWeight: 700, margin: 0, letterSpacing: '-.025em' }}>
+            Competitions
+          </h1>
+        </div>
         <Link
           to="/competitions/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+          style={{ background: 'var(--ink)', color: '#fff' }}
         >
-          New Competition
+          + New Competition
         </Link>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-center py-12" style={{ color: 'var(--muted)' }}>Loading...</div>
       ) : (
         <CompetitionList competitions={competitions} />
       )}

@@ -14,12 +14,14 @@ interface Props {
   onResultReset: (athleteId: string, eventId: string) => void;
 }
 
-function positionMedal(pos: number): string {
-  if (pos === 1) return 'bg-yellow-100 text-yellow-900';
-  if (pos === 2) return 'bg-gray-100 text-gray-700';
-  if (pos === 3) return 'bg-orange-100 text-orange-800';
-  return '';
-}
+/** Short event codes for compact display */
+const EVENT_CODES: Record<string, string> = {
+  dec_100m: '100M', dec_long_jump: 'LJ', dec_shot_put: 'SP', dec_high_jump: 'HJ',
+  dec_400m: '400M', dec_110m_hurdles: '110H', dec_discus: 'DT', dec_pole_vault: 'PV',
+  dec_javelin: 'JT', dec_1500m: '1500',
+  hep_100m_hurdles: '100H', hep_high_jump: 'HJ', hep_shot_put: 'SP', hep_200m: '200M',
+  hep_long_jump: 'LJ', hep_javelin: 'JT', hep_800m: '800M',
+};
 
 function eventRank(scores: AthleteScore[], eventId: string): Map<string, number> {
   const ranked = scores
@@ -32,7 +34,6 @@ function eventRank(scores: AthleteScore[], eventId: string): Map<string, number>
 
 function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
   const sorted = [...scores].sort((a, b) => {
-    // Withdrawn athletes always sort to the bottom
     if (a.withdrawn !== b.withdrawn) return a.withdrawn ? 1 : -1;
     return mode === 'predicted'
       ? b.predictedFinalScore - a.predictedFinalScore
@@ -43,6 +44,61 @@ function sortAndRank(scores: AthleteScore[], mode: SortMode): AthleteScore[] {
     score.position = score.withdrawn ? 0 : pos++;
   });
   return sorted;
+}
+
+function PosBadge({ pos }: { pos: number }) {
+  const bg = pos === 1 ? 'var(--gold)' : pos === 2 ? 'var(--silver)' : pos === 3 ? 'var(--bronze)' : '#fff';
+  const fg = pos <= 3 ? '#fff' : 'var(--ink)';
+  const border = pos <= 3 ? bg : 'var(--line)';
+  return (
+    <span
+      className="num inline-flex items-center justify-center"
+      style={{ width: 26, height: 26, fontSize: 13, fontWeight: 700, background: bg, color: fg, border: `1px solid ${border}`, borderRadius: 6 }}
+    >
+      {pos}
+    </span>
+  );
+}
+
+function EventRail({ events, currentEvent }: { events: EventDefinition[]; currentEvent: EventDefinition | null }) {
+  return (
+    <div className="grid overflow-hidden bg-white border rounded-[10px]" style={{ gridTemplateColumns: `repeat(${events.length}, 1fr)`, borderColor: 'var(--line)' }}>
+      {events.map((e, i) => {
+        const isCurrent = currentEvent?.id === e.id;
+        const isDone = currentEvent ? e.order < currentEvent.order : false;
+        const isUpcoming = currentEvent ? e.order > currentEvent.order : true;
+        return (
+          <div key={e.id} className="relative py-3 px-2.5" style={{ borderRight: i < events.length - 1 ? '1px solid var(--line)' : 'none' }}>
+            <div className="flex items-center justify-between gap-1">
+              <span className="micro" style={{ color: isCurrent ? 'var(--live)' : 'var(--muted-2)' }}>
+                {String(e.order).padStart(2, '0')}
+              </span>
+              {isDone && (
+                <span className="inline-flex items-center justify-center rounded-full" style={{ width: 14, height: 14, background: 'var(--ink)', color: '#fff', fontSize: 9 }}>
+                  ✓
+                </span>
+              )}
+              {isCurrent && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="live-dot" style={{ width: 6, height: 6, borderRadius: 99, background: 'var(--live)' }} />
+                  <span style={{ color: 'var(--live)', fontWeight: 700, fontSize: 10, letterSpacing: '.1em' }}>LIVE</span>
+                </span>
+              )}
+              {isUpcoming && <span className="text-[11px]" style={{ color: 'var(--muted-2)' }}>—</span>}
+            </div>
+            <div className="num mt-1" style={{ fontSize: 15, fontWeight: 700, color: isUpcoming ? 'var(--muted)' : 'var(--ink)' }}>
+              {EVENT_CODES[e.id] ?? e.name}
+            </div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--muted)', lineHeight: 1.1 }}>
+              {isDone ? 'complete' : isCurrent ? 'in progress' : 'scheduled'}
+            </div>
+            {isCurrent && <div className="absolute left-0 right-0 bottom-0 h-[3px]" style={{ background: 'var(--live)' }} />}
+            {isDone && <div className="absolute left-0 right-0 bottom-0 h-[3px]" style={{ background: 'var(--ink)' }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function Scoreboard({ competition, athletes, onResultEntered, onResultReset }: Props) {
@@ -65,117 +121,156 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
     [events, scores],
   );
 
-  const cellBg = (
-    score: AthleteScore,
-    event: EventDefinition,
-  ): string => {
-    const es = score.eventScores[event.id];
-    if (!es || es.isDNS) return 'bg-red-50';
-    if (!es || es.performance == null) return 'bg-gray-50';
-    if (!es.isActual) return 'bg-gray-50';
-
-    const athlete = athleteMap.get(score.athleteId);
-    if (athlete && es.performance != null && isPersonalBest(athlete, event.id, es.performance, event)) {
-      return 'bg-green-50';
-    }
-
-    const rank = eventRanks.get(event.id)?.get(score.athleteId);
-    if (rank === 1) return 'bg-yellow-50';
-    if (rank === 2) return 'bg-gray-50';
-    if (rank === 3) return 'bg-amber-50';
-
-    return 'bg-white';
-  };
+  const maxPred = useMemo(
+    () => Math.max(...scores.filter((s) => !s.withdrawn).map((s) => s.predictedFinalScore), 0),
+    [scores],
+  );
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <div className="inline-flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden text-sm">
-          <button
-            onClick={() => setSortMode('predicted')}
-            className={`px-3 py-1.5 font-medium transition-colors ${
-              sortMode === 'predicted'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            Predicted
-          </button>
-          <button
-            onClick={() => setSortMode('current')}
-            className={`px-3 py-1.5 font-medium transition-colors ${
-              sortMode === 'current'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            Current
-          </button>
+    <div className="flex flex-col gap-5">
+      {/* Event progress rail */}
+      <EventRail events={events} currentEvent={currentEvent} />
+
+      {/* Sort toggle */}
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex items-center gap-3.5">
+          <span className="micro" style={{ color: 'var(--muted-2)' }}>RANK BY</span>
+          <div className="inline-flex bg-white p-[3px] gap-0.5 rounded-lg" style={{ border: '1px solid var(--line)' }}>
+            <button
+              onClick={() => setSortMode('predicted')}
+              className="py-1.5 px-3 text-xs font-semibold rounded-md border-none cursor-pointer transition-colors"
+              style={{
+                background: sortMode === 'predicted' ? 'var(--ink)' : 'transparent',
+                color: sortMode === 'predicted' ? '#fff' : 'var(--muted)',
+              }}
+            >
+              Predicted final
+            </button>
+            <button
+              onClick={() => setSortMode('current')}
+              className="py-1.5 px-3 text-xs font-semibold rounded-md border-none cursor-pointer transition-colors"
+              style={{
+                background: sortMode === 'current' ? 'var(--ink)' : 'transparent',
+                color: sortMode === 'current' ? '#fff' : 'var(--muted)',
+              }}
+            >
+              Current standing
+            </button>
+          </div>
         </div>
+        <span className="text-[11px] hidden sm:block" style={{ color: 'var(--muted)' }}>Click any cell to enter result</span>
       </div>
 
-      {/* Table stays light-themed for data readability in both modes */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white text-gray-900">
-        <table className="text-sm border-collapse min-w-full">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-slate-800 text-white">
-              <th className="sticky left-0 z-20 bg-slate-800 px-3 py-2 text-left font-semibold w-8">#</th>
-              <th className="sticky left-8 z-20 bg-slate-800 px-3 py-2 text-left font-semibold min-w-[140px]">Athlete</th>
-              {events.map((event) => (
-                <th
-                  key={event.id}
-                  className={`px-3 py-2 text-center font-semibold min-w-[100px] ${
-                    currentEvent?.id === event.id ? 'bg-blue-700' : ''
-                  }`}
-                >
-                  <div className="text-xs">{event.name}</div>
-                  {currentEvent?.id === event.id && (
-                    <div className="text-[10px] font-normal opacity-75">Current</div>
-                  )}
-                </th>
-              ))}
-              <th className={`sticky right-[100px] z-20 px-3 py-2 text-center font-semibold min-w-[80px] ${sortMode === 'current' ? 'bg-blue-900' : 'bg-slate-900'}`}>
-                Current
+      {/* The table */}
+      <div className="nice-scroll overflow-x-auto bg-white rounded-[10px]" style={{ border: '1px solid var(--line)' }}>
+        <table className="text-sm min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-[3] w-[44px] py-2.5 px-2 text-center bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+                <span className="micro" style={{ color: 'var(--muted-2)' }}>#</span>
               </th>
-              <th className={`sticky right-0 z-20 px-3 py-2 text-center font-semibold min-w-[100px] ${sortMode === 'predicted' ? 'bg-blue-900' : 'bg-slate-900'}`}>
-                Predicted
+              <th className="sticky left-[44px] z-[3] min-w-[200px] py-2.5 px-2.5 text-left bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+                <span className="micro" style={{ color: 'var(--muted-2)' }}>ATHLETE</span>
+              </th>
+              {events.map((event) => {
+                const isCurrent = currentEvent?.id === event.id;
+                const isDone = currentEvent ? event.order < currentEvent.order : false;
+                return (
+                  <th
+                    key={event.id}
+                    className="relative py-2.5 px-2 min-w-[100px] text-center"
+                    style={{
+                      background: isCurrent ? 'var(--live)' : '#fff',
+                      borderBottom: isCurrent ? '1px solid var(--live)' : '1px solid var(--line)',
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="micro" style={{ opacity: 0.7, letterSpacing: '.08em', color: isCurrent ? '#fff' : 'var(--muted-2)' }}>
+                        {String(event.order).padStart(2, '0')}
+                      </span>
+                      <span className="num" style={{ fontSize: 14, fontWeight: 700, color: isCurrent ? '#fff' : 'var(--ink)' }}>
+                        {EVENT_CODES[event.id] ?? event.name}
+                      </span>
+                    </div>
+                    {isCurrent && (
+                      <div className="absolute bottom-[-1px] left-0 right-0 micro py-[2px]" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.18em', background: 'var(--live)', color: '#fff' }}>
+                        ▼ CURRENT
+                      </div>
+                    )}
+                    {isDone && <div className="absolute left-0 right-0 bottom-0 h-[2px]" style={{ background: 'var(--ink)' }} />}
+                  </th>
+                );
+              })}
+              <th className="sticky right-[116px] z-[3] w-[100px] py-2.5 px-2 text-center bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
+                <span className="micro" style={{ color: 'var(--muted-2)' }}>CURRENT</span>
+              </th>
+              <th className="sticky right-0 z-[3] w-[116px] py-2.5 px-2.5 text-center" style={{ background: 'var(--ink)', borderBottom: '1px solid var(--ink)' }}>
+                <span className="micro" style={{ color: '#fff', letterSpacing: '.14em', fontWeight: 700 }}>PREDICTED</span>
               </th>
             </tr>
           </thead>
           <tbody>
-            {scores.map((score) => {
-              const rowClass = score.withdrawn
-                ? 'border-b border-gray-200 opacity-50'
-                : 'border-b border-gray-200 hover:bg-blue-50/30';
+            {scores.map((score, idx) => {
+              const isLast = idx === scores.length - 1;
+              const cellBd = isLast ? 'none' : '1px solid var(--line)';
+              const athlete = athleteMap.get(score.athleteId);
+              const gap = maxPred - score.predictedFinalScore;
 
               return (
-                <tr key={score.athleteId} className={rowClass}>
-                  <td className={`sticky left-0 z-10 px-3 py-2 text-center font-bold ${score.withdrawn ? 'bg-gray-100 text-red-500' : positionMedal(score.position)}`}>
-                    {score.withdrawn ? 'DNF' : score.position}
+                <tr key={score.athleteId} style={{ height: 54, opacity: score.withdrawn ? 0.55 : 1 }}>
+                  {/* Position */}
+                  <td className="sticky left-0 z-[2] px-2 py-1.5 text-center bg-white" style={{ borderBottom: cellBd }}>
+                    {score.withdrawn ? (
+                      <span className="num text-[11px] font-bold" style={{ color: 'var(--live)' }}>DNF</span>
+                    ) : (
+                      <PosBadge pos={score.position} />
+                    )}
                   </td>
-                  <td className={`sticky left-8 z-10 px-3 py-2 font-medium whitespace-nowrap ${score.withdrawn ? 'bg-gray-100 line-through text-gray-500' : 'bg-white'}`}>
-                    {score.athleteName}
+
+                  {/* Athlete name */}
+                  <td className="sticky left-[44px] z-[2] px-2.5 py-1.5 bg-white" style={{ borderBottom: cellBd, borderRight: '1px solid var(--line)' }}>
+                    <div className="flex items-center gap-2.5">
+                      {athlete?.nationality && (
+                        <span className="mono inline-flex items-center justify-center shrink-0" style={{ width: 26, height: 16, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', background: '#fff', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 3 }}>
+                          {athlete.nationality.slice(0, 3).toUpperCase()}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <div className="whitespace-nowrap text-sm" style={{ fontWeight: 600, color: score.withdrawn ? 'var(--muted-2)' : 'var(--ink)', textDecoration: score.withdrawn ? 'line-through' : 'none' }}>
+                          {score.athleteName}
+                        </div>
+                      </div>
+                    </div>
                   </td>
+
+                  {/* Event cells */}
                   {events.map((event) => {
                     const es = score.eventScores[event.id];
-                    const isEditing =
-                      editingCell?.athleteId === score.athleteId && editingCell?.eventId === event.id;
+                    const isCurrent = currentEvent?.id === event.id;
+                    const isFuture = currentEvent ? event.order > currentEvent.order : false;
+                    const isEditing = editingCell?.athleteId === score.athleteId && editingCell?.eventId === event.id;
+                    const rank = eventRanks.get(event.id)?.get(score.athleteId);
+                    const isPB = athlete && es?.isActual && es.performance != null && isPersonalBest(athlete, event.id, es.performance, event);
+
+                    // Cell background
+                    let bgColor = '#fff';
+                    if (isCurrent) bgColor = 'rgba(232,57,45,.04)';
+                    if (isFuture) bgColor = 'var(--bg)';
+                    if (isPB) bgColor = 'rgba(11,138,62,.07)';
+                    if (rank === 1 && es?.isActual && !isPB) bgColor = 'rgba(200,160,71,.10)';
+                    if (es?.isDNS) bgColor = 'var(--live-soft)';
+
+                    const cellBorderLeft = isCurrent ? '1px solid rgba(232,57,45,.25)' : '1px solid var(--line)';
 
                     if (isEditing) {
                       return (
-                        <td key={event.id} className="px-2 py-1">
+                        <td key={event.id} className="px-2 py-1" style={{ borderBottom: cellBd, borderLeft: cellBorderLeft, background: bgColor }}>
                           <PerformanceInput
                             event={event}
                             value={es?.performance}
                             autoFocus
-                            onChange={(val) => {
-                              onResultEntered(score.athleteId, event.id, val);
-                              setEditingCell(null);
-                            }}
-                            onDNS={() => {
-                              onResultEntered(score.athleteId, event.id, DNS_MARK);
-                              setEditingCell(null);
-                            }}
+                            onChange={(val) => { onResultEntered(score.athleteId, event.id, val); setEditingCell(null); }}
+                            onDNS={() => { onResultEntered(score.athleteId, event.id, DNS_MARK); setEditingCell(null); }}
                             onCancel={() => setEditingCell(null)}
                           />
                         </td>
@@ -185,22 +280,14 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                     // DNS cell
                     if (es?.isDNS) {
                       return (
-                        <td
-                          key={event.id}
-                          className="px-3 py-2 text-center bg-red-50 group relative"
-                        >
-                          <div
-                            className="cursor-pointer"
-                            onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
-                          >
-                            <span className="text-xs font-bold text-red-500">DNS</span>
+                        <td key={event.id} className="group relative px-2.5 py-2 text-center" style={{ background: bgColor, borderBottom: cellBd, borderLeft: cellBorderLeft }}>
+                          <div className="cursor-pointer" onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}>
+                            <span className="text-xs font-bold" style={{ color: 'var(--live)' }}>DNS</span>
                           </div>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onResultReset(score.athleteId, event.id);
-                            }}
-                            className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
+                            className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs rounded"
+                            style={{ color: 'var(--muted-2)' }}
                             title="Reset to PB"
                           >
                             ✕
@@ -212,26 +299,35 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                     return (
                       <td
                         key={event.id}
-                        className={`px-3 py-2 text-center ${cellBg(score, event)} group relative`}
+                        className={`group relative px-2.5 py-2 text-center align-middle ${!es?.isActual && es?.performance != null ? 'diag-stripe' : ''}`}
+                        style={{ background: bgColor, borderBottom: cellBd, borderLeft: cellBorderLeft }}
                       >
                         {es && es.performance != null ? (
-                          <div
-                            className="cursor-pointer"
-                            onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
-                          >
-                            <div className={es.isActual ? 'font-semibold' : 'italic text-gray-400'}>
+                          <div className="cursor-pointer relative" onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}>
+                            <div className="num" style={{ fontSize: es.isActual ? 15 : 14, fontWeight: es.isActual ? 700 : 400, lineHeight: 1.1, color: isPB ? 'var(--pb)' : es.isActual ? 'var(--ink)' : 'var(--muted)', fontStyle: es.isActual ? 'normal' : 'italic' }}>
                               {formatPerformance(event, es.performance)}
                             </div>
-                            <div className={`text-xs ${es.isActual ? 'text-gray-700' : 'text-gray-400'}`}>
+                            <div className="tnum mt-0.5" style={{ fontSize: 11, color: es.isActual ? 'var(--muted)' : 'var(--muted-2)' }}>
                               {es.points} pts
                             </div>
+                            {/* PB tag */}
+                            {isPB && (
+                              <div className="absolute -top-1 -right-1 rounded" style={{ background: 'var(--pb)', color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '.04em', padding: '1px 4px' }}>
+                                PB↑
+                              </div>
+                            )}
+                            {/* Event win tag */}
+                            {rank === 1 && es.isActual && !isPB && (
+                              <div className="absolute -top-1 -right-1 rounded" style={{ background: 'var(--gold)', color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '.04em', padding: '1px 4px' }}>
+                                #1
+                              </div>
+                            )}
+                            {/* Reset button */}
                             {es.isActual && (
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onResultReset(score.athleteId, event.id);
-                                }}
-                                className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
+                                className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs rounded"
+                                style={{ color: 'var(--muted-2)' }}
                                 title="Reset to PB"
                               >
                                 ✕
@@ -240,7 +336,8 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                           </div>
                         ) : (
                           <span
-                            className="text-gray-300 cursor-pointer"
+                            className="cursor-pointer text-sm"
+                            style={{ color: 'var(--muted-2)' }}
                             onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}
                           >
                             —
@@ -249,17 +346,58 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                       </td>
                     );
                   })}
-                  <td className={`sticky right-[100px] z-10 px-3 py-2 text-center font-mono font-semibold ${score.withdrawn ? 'bg-gray-100' : sortMode === 'current' ? 'bg-blue-50 text-blue-900 text-lg font-bold' : 'bg-white'}`}>
-                    {score.totalActualPoints}
+
+                  {/* Current total */}
+                  <td className="sticky right-[116px] z-[2] px-2 py-1.5 text-center bg-white" style={{ borderLeft: '1px solid var(--line)', borderBottom: cellBd }}>
+                    <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>
+                      {score.totalActualPoints || '—'}
+                    </div>
                   </td>
-                  <td className={`sticky right-0 z-10 px-3 py-2 text-center font-mono ${score.withdrawn ? 'bg-gray-100' : sortMode === 'predicted' ? 'font-bold text-lg text-blue-900 bg-blue-50' : 'font-semibold bg-white'}`}>
-                    {score.withdrawn ? '—' : score.predictedFinalScore}
+
+                  {/* Predicted total */}
+                  <td className="sticky right-0 z-[2] px-2.5 py-1.5 text-center" style={{ background: '#FBFAF4', borderLeft: '2px solid var(--ink)', borderBottom: cellBd }}>
+                    {score.withdrawn ? (
+                      <span className="num" style={{ fontSize: 22, color: 'var(--muted-2)' }}>—</span>
+                    ) : (
+                      <>
+                        <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+                          {score.predictedFinalScore}
+                        </div>
+                        <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
+                          {gap === 0 ? 'LEADER' : `−${gap}`}
+                        </div>
+                      </>
+                    )}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-6 flex-wrap items-center text-xs" style={{ color: 'var(--muted)' }}>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'var(--live)' }} />
+          Current event
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'var(--pb)' }} />
+          Personal best
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: 'var(--gold)' }} />
+          Event win
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="diag-stripe w-3.5 h-2.5 inline-block rounded-sm" style={{ border: '1px solid var(--line)' }} />
+          Projected from PB
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3.5 h-2.5 inline-block rounded-sm" style={{ background: 'var(--live-soft)', border: '1px solid #F0C9C3' }} />
+          DNS / DNF
+        </span>
       </div>
     </div>
   );

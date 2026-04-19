@@ -32,7 +32,14 @@
       "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarCompetitionResults\\(competitionId: 7206085, day: null, eventId: 10229629\\) { eventTitles { events { event races { race raceId startList { competitor { name iaafId } pb sb bib } results { competitor { name iaafId } mark } } } } } }\"}')",
       "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ __type\\(name: \\\\\"CalendarStartListCompetitor\\\\\"\\) { fields { name type { name kind } } } }\"}')",
       "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarCompetitionResults\\(competitionId: 7206085, day: null, eventId: 10229629\\) { eventTitles { events { event races { race startList { competitor { name id country birthDate } pb sb bib } } } } } }\"}')",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Read(//private/tmp/**)",
+      "Bash(cp /Users/jonathan/.claude/projects/-Users-jonathan-dev-claude-test-decathlon-predictor/7eba11af-4d9a-405c-b86d-90477b5f4655/tool-results/webfetch-1776544136589-2bxd33.bin design.gz)",
+      "Bash(gunzip -f design.gz)",
+      "Bash(tar tf *)",
+      "Bash(tar xf *)",
+      "Bash(npm run *)"
     ]
   }
 }
