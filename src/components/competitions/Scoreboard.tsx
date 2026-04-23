@@ -352,7 +352,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                             {es.isActual && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
-                                className="absolute top-0.5 right-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs rounded"
+                                className="absolute top-0.5 left-0.5 hidden group-hover:inline-flex items-center justify-center w-5 h-5 text-xs rounded"
                                 style={{ color: 'var(--muted-2)' }}
                                 title="Reset to PB"
                               >

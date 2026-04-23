@@ -44,9 +44,12 @@ export function AthleteDetailPage() {
     );
   }
 
+  const peers = athletes.filter((a) => a.gender === athlete.gender && a.id !== athlete.id);
+
   return (
     <AthleteProfile
       athlete={athlete}
+      peers={peers}
       onDelete={async () => {
         if (confirm('Delete this athlete?')) {
           await remove(athlete.id);

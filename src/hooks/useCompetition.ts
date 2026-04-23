@@ -77,7 +77,25 @@ export const useCompetitions = create<CompetitionsState>((set, get) => ({
     if (!results[athleteId]) {
       results[athleteId] = {};
     }
-    results[athleteId] = { ...results[athleteId], [eventId]: value };
+    const athleteResults = { ...results[athleteId], [eventId]: value };
+
+    // When setting DNS, cascade to all subsequent events without actual results
+    if (value === DNS_MARK) {
+      const events = getEventsForType(comp.type);
+      const dnsIndex = events.findIndex((e) => e.id === eventId);
+      if (dnsIndex >= 0) {
+        for (let i = dnsIndex + 1; i < events.length; i++) {
+          const eid = events[i].id;
+          const existing = results[athleteId]?.[eid];
+          // Only set DNS if no actual result exists (or already DNS)
+          if (existing == null || existing === DNS_MARK) {
+            athleteResults[eid] = DNS_MARK;
+          }
+        }
+      }
+    }
+
+    results[athleteId] = athleteResults;
 
     await api.updateCompetition(competitionId, { results });
     await get().fetchOne(competitionId);

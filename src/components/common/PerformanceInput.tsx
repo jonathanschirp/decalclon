@@ -11,7 +11,7 @@ interface Props {
   autoFocus?: boolean;
 }
 
-const LONG_TRACK_IDS = new Set(['dec_400m', 'dec_1500m', 'hep_800m']);
+const LONG_TRACK_IDS = new Set(['dec_1500m', 'hep_800m']);
 
 function unitLabel(event: EventDefinition): string {
   if (event.type === 'field') return 'meters';
@@ -19,10 +19,30 @@ function unitLabel(event: EventDefinition): string {
   return 'seconds';
 }
 
+const PLACEHOLDERS: Record<string, string> = {
+  // Decathlon
+  dec_100m: 'e.g. 10.64',
+  dec_long_jump: 'e.g. 7.84',
+  dec_shot_put: 'e.g. 16.05',
+  dec_high_jump: 'e.g. 2.11',
+  dec_400m: 'e.g. 47.12',
+  dec_110m_hurdles: 'e.g. 13.72',
+  dec_discus: 'e.g. 50.32',
+  dec_pole_vault: 'e.g. 5.20',
+  dec_javelin: 'e.g. 71.18',
+  dec_1500m: 'e.g. 4:21.30',
+  // Heptathlon
+  hep_100m_hurdles: 'e.g. 12.84',
+  hep_high_jump: 'e.g. 1.92',
+  hep_shot_put: 'e.g. 14.28',
+  hep_200m: 'e.g. 23.15',
+  hep_long_jump: 'e.g. 6.68',
+  hep_javelin: 'e.g. 53.86',
+  hep_800m: 'e.g. 2:08.50',
+};
+
 function placeholderFor(event: EventDefinition): string {
-  if (event.type === 'field') return 'e.g. 7.65';
-  if (LONG_TRACK_IDS.has(event.id)) return 'e.g. 4:11.30';
-  return 'e.g. 10.85';
+  return PLACEHOLDERS[event.id] ?? (event.type === 'field' ? 'e.g. 7.65' : 'e.g. 10.85');
 }
 
 export function PerformanceInput({ event, value, onChange, onDNS, onCancel, autoFocus }: Props) {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Athlete } from '../../types';
 import { getEventsForType } from '../../lib/events';
@@ -5,10 +6,11 @@ import { calculatePoints, formatPerformance } from '../../lib/scoring';
 
 interface Props {
   athlete: Athlete;
+  peers: Athlete[];
   onDelete: () => void;
 }
 
-export function AthleteProfile({ athlete, onDelete }: Props) {
+export function AthleteProfile({ athlete, peers, onDelete }: Props) {
   const events = getEventsForType(athlete.gender === 'male' ? 'decathlon' : 'heptathlon');
 
   const eventPoints = events.map((event) => {
@@ -17,6 +19,32 @@ export function AthleteProfile({ athlete, onDelete }: Props) {
   });
 
   const totalPoints = eventPoints.reduce((sum, ep) => sum + ep.points, 0);
+
+  // Per-event average points across all peers (same gender) who have a PB for that event
+  const peerAvg = useMemo(() => {
+    const avg: Record<string, number> = {};
+    for (const event of events) {
+      const peerPoints: number[] = [];
+      for (const p of peers) {
+        const pb = p.personalBests[event.id];
+        if (pb != null) peerPoints.push(calculatePoints(event, pb));
+      }
+      // Include the athlete themselves in the average
+      const athletePb = athlete.personalBests[event.id];
+      if (athletePb != null) peerPoints.push(calculatePoints(event, athletePb));
+      avg[event.id] = peerPoints.length > 0 ? peerPoints.reduce((s, v) => s + v, 0) / peerPoints.length : 0;
+    }
+    return avg;
+  }, [events, peers, athlete]);
+
+  function getTag(eventId: string, points: number): 'strength' | 'weakness' | 'neutral' {
+    const avg = peerAvg[eventId];
+    if (points <= 0 || avg <= 0) return 'neutral';
+    const deviation = (points - avg) / avg;
+    if (deviation >= 0.06) return 'strength';
+    if (deviation <= -0.06) return 'weakness';
+    return 'neutral';
+  }
 
   return (
     <div className="space-y-6">
@@ -105,7 +133,10 @@ export function AthleteProfile({ athlete, onDelete }: Props) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
           {eventPoints.map(({ event, pb, points }) => {
-            const strong = points >= 950;
+            const avg = peerAvg[event.id];
+            const tag = getTag(event.id, points);
+            const tagColor = tag === 'strength' ? 'var(--pb)' : tag === 'weakness' ? 'var(--live)' : 'var(--muted-2)';
+            const diff = avg > 0 ? Math.round(points - avg) : 0;
             return (
               <div
                 key={event.id}
@@ -120,8 +151,8 @@ export function AthleteProfile({ athlete, onDelete }: Props) {
                     {String(event.order).padStart(2, '0')}
                   </span>
                   {points > 0 && (
-                    <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: strong ? 'var(--pb)' : 'var(--muted-2)' }}>
-                      {strong ? 'strength' : 'neutral'}
+                    <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: tagColor }}>
+                      {tag}
                     </span>
                   )}
                 </div>
@@ -133,16 +164,20 @@ export function AthleteProfile({ athlete, onDelete }: Props) {
                 </div>
                 {points > 0 && (
                   <>
-                    <div style={{ marginTop: 10, height: 4, background: 'var(--bg-2)', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{ position: 'relative', marginTop: 10, height: 4, background: 'var(--bg-2)', borderRadius: 99, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%',
-                        width: `${Math.min(100, (points / 1100) * 100)}%`,
-                        background: strong ? 'var(--pb)' : 'var(--ink)',
+                        width: avg > 0 ? `${Math.min(100, (points / avg) * 50)}%` : '50%',
+                        background: tagColor,
                       }} />
                     </div>
                     <div className="flex justify-between" style={{ marginTop: 6 }}>
                       <span className="tnum" style={{ fontSize: 10, color: 'var(--muted)' }}>{points} pts</span>
-                      <span className="tnum" style={{ fontSize: 10, color: 'var(--muted-2)' }}>/ 1100</span>
+                      {avg > 0 && (
+                        <span className="tnum" style={{ fontSize: 10, color: diff > 0 ? 'var(--pb)' : diff < 0 ? 'var(--live)' : 'var(--muted-2)' }}>
+                          {diff > 0 ? '+' : ''}{diff} vs peers
+                        </span>
+                      )}
                     </div>
                   </>
                 )}
