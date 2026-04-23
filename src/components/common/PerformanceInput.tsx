@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { EventDefinition } from '../../types';
-import { calculatePoints, parseTimeInput } from '../../lib/scoring';
+import { calculatePoints, parseTimeInput, formatTime } from '../../lib/scoring';
 
 interface Props {
   event: EventDefinition;
@@ -11,8 +11,46 @@ interface Props {
   autoFocus?: boolean;
 }
 
+const LONG_TRACK_IDS = new Set(['dec_1500m', 'hep_800m']);
+
+function unitLabel(event: EventDefinition): string {
+  if (event.type === 'field') return 'meters';
+  if (LONG_TRACK_IDS.has(event.id)) return 'm:ss.xx';
+  return 'seconds';
+}
+
+const PLACEHOLDERS: Record<string, string> = {
+  // Decathlon
+  dec_100m: 'e.g. 10.64',
+  dec_long_jump: 'e.g. 7.84',
+  dec_shot_put: 'e.g. 16.05',
+  dec_high_jump: 'e.g. 2.11',
+  dec_400m: 'e.g. 47.12',
+  dec_110m_hurdles: 'e.g. 13.72',
+  dec_discus: 'e.g. 50.32',
+  dec_pole_vault: 'e.g. 5.20',
+  dec_javelin: 'e.g. 71.18',
+  dec_1500m: 'e.g. 4:21.30',
+  // Heptathlon
+  hep_100m_hurdles: 'e.g. 12.84',
+  hep_high_jump: 'e.g. 1.92',
+  hep_shot_put: 'e.g. 14.28',
+  hep_200m: 'e.g. 23.15',
+  hep_long_jump: 'e.g. 6.68',
+  hep_javelin: 'e.g. 53.86',
+  hep_800m: 'e.g. 2:08.50',
+};
+
+function placeholderFor(event: EventDefinition): string {
+  return PLACEHOLDERS[event.id] ?? (event.type === 'field' ? 'e.g. 7.65' : 'e.g. 10.85');
+}
+
 export function PerformanceInput({ event, value, onChange, onDNS, onCancel, autoFocus }: Props) {
-  const [input, setInput] = useState(value != null ? String(value) : '');
+  const [input, setInput] = useState(() => {
+    if (value == null) return '';
+    if (event.type === 'track') return formatTime(value);
+    return String(value);
+  });
   const [points, setPoints] = useState<number | null>(null);
   const [error, setError] = useState('');
 
@@ -37,13 +75,17 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
     }
   };
 
-  const placeholder = event.type === 'track'
-    ? (event.measurementUnit === 'seconds' ? '10.85 or 4:11.30' : '10.85')
-    : '7.65';
+  const btnBase: React.CSSProperties = {
+    padding: '7px 12px', fontSize: 12, fontWeight: 600,
+    border: 'none', borderRadius: 6, cursor: 'pointer',
+  };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex gap-1">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Unit label */}
+      <div className="micro" style={{ color: 'var(--muted-2)' }}>{unitLabel(event)}</div>
+
+      <div style={{ display: 'flex', gap: 6 }}>
         <input
           type="text"
           inputMode="decimal"
@@ -53,39 +95,63 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
             if (e.key === 'Enter') handleSubmit();
             if (e.key === 'Escape') onCancel?.();
           }}
-          placeholder={placeholder}
+          placeholder={placeholderFor(event)}
           autoFocus={autoFocus}
-          className="flex-1 sm:flex-none sm:w-28 min-w-0 px-2 py-2 sm:py-1 text-base sm:text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mono tnum"
+          style={{
+            flex: 1, minWidth: 0,
+            padding: '8px 10px', fontSize: 14,
+            border: '1px solid var(--line)', borderRadius: 6,
+            background: '#fff', color: 'var(--ink)',
+            outline: 'none',
+          }}
         />
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={points === null}
-          className="px-3 py-2 sm:py-1 text-sm sm:text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            ...btnBase,
+            background: 'var(--ink)', color: '#fff',
+            opacity: points === null ? 0.4 : 1,
+          }}
         >
           Save
         </button>
         {onDNS && (
           <button
+            type="button"
             onClick={onDNS}
-            className="px-2 py-2 sm:py-1 text-sm sm:text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium"
-            title="Did Not Start / Did Not Finish"
+            style={{
+              ...btnBase,
+              background: 'var(--live-soft)', color: 'var(--live)',
+            }}
           >
             DNS
           </button>
         )}
         {onCancel && (
           <button
+            type="button"
             onClick={onCancel}
-            className="px-3 py-2 sm:py-1 text-sm sm:text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+            style={{
+              ...btnBase,
+              background: 'var(--bg)', color: 'var(--muted)',
+              border: '1px solid var(--line)',
+            }}
           >
             ✕
           </button>
         )}
       </div>
+
+      {/* Feedback row */}
       {points !== null && (
-        <span className="text-xs text-green-700 dark:text-green-400 font-medium">{points} pts</span>
+        <span className="num tnum" style={{ fontSize: 12, color: 'var(--pb)', fontWeight: 700 }}>{points} pts</span>
       )}
-      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
+      {error && (
+        <span style={{ fontSize: 12, color: 'var(--live)' }}>{error}</span>
+      )}
     </div>
   );
 }

@@ -2,12 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAthletes } from '../hooks/useAthletes';
 import { useCompetitions } from '../hooks/useCompetition';
-
-const statusColors: Record<string, string> = {
-  upcoming: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  in_progress: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-};
+import { getCompetitionStatus } from '../lib/competitionStatus';
 
 export function Dashboard() {
   const { athletes, fetch: fetchAthletes } = useAthletes();
@@ -18,93 +13,112 @@ export function Dashboard() {
     fetchCompetitions();
   }, [fetchAthletes, fetchCompetitions]);
 
-  const activeComps = competitions.filter((c) => c.status === 'in_progress');
-  const upcomingComps = competitions.filter((c) => c.status === 'upcoming');
-  const completedComps = competitions.filter((c) => c.status === 'completed');
+  const activeComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'in_progress');
+  const upcomingComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'upcoming');
+  const completedComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'completed');
 
   const hasCompetitions = competitions.length > 0;
 
   return (
     <div className="space-y-8">
-      {/* Hero / welcome */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Competitions</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {athletes.length} athletes &middot; {competitions.length} competitions
-          </p>
+          <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>01 · COMPETITIONS</div>
+          <h1 className="display" style={{ fontSize: 36, fontWeight: 700, margin: 0, letterSpacing: '-.025em' }}>
+            Season ledger
+          </h1>
+          <div style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
+            <span className="tnum" style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{athletes.length}</span> athletes &middot;{' '}
+            <span className="tnum" style={{ color: 'var(--ink-2)', fontWeight: 600 }}>{competitions.length}</span> competitions
+          </div>
         </div>
         <div className="flex gap-2">
           <Link
             to="/athletes/new"
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+            style={{ border: '1px solid var(--line)', color: 'var(--ink-2)', background: 'var(--surface)' }}
           >
             Add Athlete
           </Link>
           <Link
             to="/competitions/new"
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+            style={{ background: 'var(--ink)', color: '#fff' }}
           >
-            New Competition
+            + New Competition
           </Link>
         </div>
       </div>
 
-      {/* Active competitions — primary focus */}
+      {/* Live competitions — hero cards */}
       {activeComps.length > 0 && (
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-3">
-            Live
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {activeComps.map((comp) => (
-              <Link
-                key={comp.id}
-                to={`/competitions/${comp.id}`}
-                className="group block p-5 bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800/50 rounded-xl hover:border-amber-400 dark:hover:border-amber-600 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <h3 className="font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          {activeComps.map((comp) => (
+            <Link
+              key={comp.id}
+              to={`/competitions/${comp.id}`}
+              className="block overflow-hidden"
+              style={{
+                position: 'relative',
+                background: 'var(--ink)', color: '#fff',
+                borderRadius: 14, padding: '24px 28px',
+              }}
+            >
+              {/* Lane stripes decoration */}
+              <div aria-hidden="true" style={{
+                position: 'absolute', inset: 0,
+                backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 160px, rgba(255,255,255,.04) 160px 161px)',
+                pointerEvents: 'none',
+              }} />
+              <div className="relative flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="live-dot inline-block" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--live)' }} />
+                    <span className="micro" style={{ color: 'rgba(255,255,255,.5)', letterSpacing: '.12em' }}>LIVE</span>
+                  </div>
+                  <div className="display" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.1 }}>
                     {comp.name}
-                  </h3>
-                  <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${statusColors[comp.status]}`}>
-                    Live
-                  </span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,.6)', marginTop: 6, fontSize: 14 }}>
+                    {comp.date}{comp.location && ` · ${comp.location}`} · {comp.athleteIds.length} athletes
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 space-y-0.5">
-                  <div>{comp.date}{comp.location && ` \u00B7 ${comp.location}`}</div>
-                  <div className="capitalize">{comp.type} &middot; {comp.athleteIds.length} athletes</div>
-                </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+              <div className="relative mt-4">
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.55)' }}>
+                  View scoreboard →
+                </span>
+              </div>
+            </Link>
+          ))}
         </section>
       )}
 
       {/* Upcoming */}
       {upcomingComps.length > 0 && (
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-            Upcoming
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 14, letterSpacing: '.08em' }}>
+            UPCOMING · {String(upcomingComps.length).padStart(2, '0')}
+          </div>
+          <div
+            className="overflow-hidden"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 1, background: 'var(--line)', border: '1px solid var(--line)', borderRadius: 10 }}
+          >
             {upcomingComps.map((comp) => (
               <Link
                 key={comp.id}
                 to={`/competitions/${comp.id}`}
-                className="group block p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
+                className="block"
+                style={{ background: 'var(--surface)', padding: 20 }}
               >
-                <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <h3 className="font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {comp.name}
-                  </h3>
-                  <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${statusColors[comp.status]}`}>
-                    Upcoming
-                  </span>
+                <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>
+                  {comp.type.toUpperCase()} · {comp.athleteIds.length} ATHLETES
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {comp.date}{comp.location && ` \u00B7 ${comp.location}`}
-                  <span className="capitalize"> &middot; {comp.type} &middot; {comp.athleteIds.length} athletes</span>
+                <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.015em' }}>{comp.name}</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{comp.location}</div>
+                <div className="tnum" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+                  {comp.date}
                 </div>
               </Link>
             ))}
@@ -115,28 +129,27 @@ export function Dashboard() {
       {/* Completed */}
       {completedComps.length > 0 && (
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-            Completed
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {completedComps.map((comp) => (
+          <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 14, letterSpacing: '.08em' }}>
+            COMPLETED · {String(completedComps.length).padStart(2, '0')}
+          </div>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+            {completedComps.map((comp, i) => (
               <Link
                 key={comp.id}
                 to={`/competitions/${comp.id}`}
-                className="group block p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
+                className="flex items-center justify-between gap-4"
+                style={{
+                  padding: '14px 20px',
+                  borderBottom: i < completedComps.length - 1 ? '1px solid var(--line)' : 'none',
+                }}
               >
-                <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <h3 className="font-semibold text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {comp.name}
-                  </h3>
-                  <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${statusColors[comp.status]}`}>
-                    Done
-                  </span>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{comp.name}</div>
+                  <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                    {comp.date}{comp.location && ` · ${comp.location}`} · {comp.type}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400 dark:text-gray-500">
-                  {comp.date}{comp.location && ` \u00B7 ${comp.location}`}
-                  <span className="capitalize"> &middot; {comp.type}</span>
-                </div>
+                <span style={{ color: 'var(--muted-2)', fontSize: 14 }}>→</span>
               </Link>
             ))}
           </div>
@@ -146,14 +159,15 @@ export function Dashboard() {
       {/* Empty state */}
       {!hasCompetitions && (
         <div className="text-center py-16">
-          <div className="text-4xl mb-4 text-gray-300 dark:text-gray-700">&#9776;</div>
-          <h2 className="text-lg font-semibold mb-1">No competitions yet</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          <div className="display" style={{ fontSize: 48, color: 'var(--line-2)', marginBottom: 16 }}>&#9776;</div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>No competitions yet</h2>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24 }}>
             Create your first competition or import one from World Athletics.
           </p>
           <Link
             to="/competitions/new"
-            className="inline-block px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+            className="inline-block px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'var(--ink)', color: '#fff' }}
           >
             New Competition
           </Link>

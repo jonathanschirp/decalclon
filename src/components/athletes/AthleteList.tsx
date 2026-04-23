@@ -8,9 +8,9 @@ interface Props {
 export function AthleteList({ athletes }: Props) {
   if (athletes.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-        <p className="text-lg">No athletes yet.</p>
-        <Link to="/athletes/new" className="text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">
+      <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
+        <p style={{ fontSize: 16 }}>No athletes yet.</p>
+        <Link to="/athletes/new" style={{ color: 'var(--brand)', marginTop: 8 }} className="inline-block hover:underline">
           Add your first athlete
         </Link>
       </div>
@@ -18,65 +18,78 @@ export function AthleteList({ athletes }: Props) {
   }
 
   return (
-    <>
-      {/* Desktop table */}
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-800 text-left">
-              <th className="px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Name</th>
-              <th className="px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Discipline</th>
-              <th className="px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Nationality</th>
-              <th className="px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 text-right">PB</th>
-            </tr>
-          </thead>
-          <tbody>
-            {athletes.map((athlete) => (
-              <tr key={athlete.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                <td className="px-4 py-3">
-                  <Link to={`/athletes/${athlete.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                    {athlete.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                  {athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'}
-                </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{athlete.nationality || '—'}</td>
-                <td className="px-4 py-3 text-right font-mono font-semibold">
-                  {athlete.combinedPB != null ? athlete.combinedPB : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+      {/* Header */}
+      <div
+        className="hidden sm:grid gap-4"
+        style={{
+          gridTemplateColumns: '44px 2fr 1fr 100px 24px',
+          padding: '10px 16px',
+          borderBottom: '1px solid var(--line)',
+          background: 'var(--bg)',
+        }}
+      >
+        <div className="micro" style={{ color: 'var(--muted-2)' }}>#</div>
+        <div className="micro" style={{ color: 'var(--muted-2)' }}>ATHLETE</div>
+        <div className="micro" style={{ color: 'var(--muted-2)' }}>DISCIPLINE</div>
+        <div className="micro" style={{ color: 'var(--muted-2)', textAlign: 'right' }}>PB</div>
+        <div />
       </div>
 
-      {/* Mobile cards */}
-      <div className="sm:hidden space-y-2">
-        {athletes.map((athlete) => (
-          <Link
-            key={athlete.id}
-            to={`/athletes/${athlete.id}`}
-            className="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 active:bg-gray-50 dark:active:bg-gray-800"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-blue-600 dark:text-blue-400 truncate">{athlete.name}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'}
-                  {athlete.nationality && ` \u00B7 ${athlete.nationality}`}
-                </div>
+      {/* Rows */}
+      {athletes.map((athlete, i) => (
+        <Link
+          key={athlete.id}
+          to={`/athletes/${athlete.id}`}
+          className="block sm:grid gap-4 items-center"
+          style={{
+            gridTemplateColumns: '44px 2fr 1fr 100px 24px',
+            padding: '12px 16px',
+            borderBottom: i < athletes.length - 1 ? '1px solid var(--line)' : 'none',
+          }}
+        >
+          {/* Row number — desktop */}
+          <div className="hidden sm:block num tnum" style={{ fontWeight: 600, fontSize: 12, color: 'var(--muted-2)' }}>
+            {String(i + 1).padStart(2, '0')}
+          </div>
+
+          {/* Name + nationality */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {athlete.nationality && (
+              <span className="mono shrink-0" style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>
+                {athlete.nationality}
+              </span>
+            )}
+            <div className="min-w-0">
+              <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {athlete.name}
               </div>
-              {athlete.combinedPB != null && (
-                <div className="shrink-0 text-right">
-                  <div className="font-mono font-bold">{athlete.combinedPB}</div>
-                  <div className="text-[10px] uppercase text-gray-500 dark:text-gray-400">PB</div>
-                </div>
-              )}
+              {/* Mobile: show discipline + PB inline */}
+              <div className="sm:hidden" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                {athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'}
+                {athlete.combinedPB != null && (
+                  <span className="num tnum" style={{ marginLeft: 8, fontWeight: 700, color: 'var(--ink)' }}>
+                    {athlete.combinedPB}
+                  </span>
+                )}
+              </div>
             </div>
-          </Link>
-        ))}
-      </div>
-    </>
+          </div>
+
+          {/* Discipline — desktop */}
+          <div className="hidden sm:block" style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 500 }}>
+            {athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'}
+          </div>
+
+          {/* PB — desktop */}
+          <div className="hidden sm:block num tnum" style={{ textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
+            {athlete.combinedPB != null ? athlete.combinedPB : '—'}
+          </div>
+
+          {/* Arrow */}
+          <div className="hidden sm:block" style={{ color: 'var(--muted-2)', fontSize: 14, textAlign: 'right' }}>→</div>
+        </Link>
+      ))}
+    </div>
   );
 }

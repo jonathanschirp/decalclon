@@ -25,8 +25,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <p style={{ color: 'var(--muted)' }}>Loading...</p>
       </div>
     );
   }
@@ -37,7 +37,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+      <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
         <Navbar />
         <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <Routes>

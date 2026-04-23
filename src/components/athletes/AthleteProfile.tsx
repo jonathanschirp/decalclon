@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Athlete } from '../../types';
 import { getEventsForType } from '../../lib/events';
@@ -5,94 +6,184 @@ import { calculatePoints, formatPerformance } from '../../lib/scoring';
 
 interface Props {
   athlete: Athlete;
+  peers: Athlete[];
   onDelete: () => void;
 }
 
-export function AthleteProfile({ athlete, onDelete }: Props) {
+export function AthleteProfile({ athlete, peers, onDelete }: Props) {
   const events = getEventsForType(athlete.gender === 'male' ? 'decathlon' : 'heptathlon');
 
-  const totalPoints = events.reduce((sum, event) => {
+  const eventPoints = events.map((event) => {
     const pb = athlete.personalBests[event.id];
-    return sum + (pb != null ? calculatePoints(event, pb) : 0);
-  }, 0);
+    return { event, pb, points: pb != null ? calculatePoints(event, pb) : 0 };
+  });
+
+  const totalPoints = eventPoints.reduce((sum, ep) => sum + ep.points, 0);
+
+  // Per-event average points across all peers (same gender) who have a PB for that event
+  const peerAvg = useMemo(() => {
+    const avg: Record<string, number> = {};
+    for (const event of events) {
+      const peerPoints: number[] = [];
+      for (const p of peers) {
+        const pb = p.personalBests[event.id];
+        if (pb != null) peerPoints.push(calculatePoints(event, pb));
+      }
+      // Include the athlete themselves in the average
+      const athletePb = athlete.personalBests[event.id];
+      if (athletePb != null) peerPoints.push(calculatePoints(event, athletePb));
+      avg[event.id] = peerPoints.length > 0 ? peerPoints.reduce((s, v) => s + v, 0) / peerPoints.length : 0;
+    }
+    return avg;
+  }, [events, peers, athlete]);
+
+  function getTag(eventId: string, points: number): 'strength' | 'weakness' | 'neutral' {
+    const avg = peerAvg[eventId];
+    if (points <= 0 || avg <= 0) return 'neutral';
+    const deviation = (points - avg) / avg;
+    if (deviation >= 0.06) return 'strength';
+    if (deviation <= -0.06) return 'weakness';
+    return 'neutral';
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      {/* Breadcrumb */}
+      <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 6, alignItems: 'center' }}>
+        <Link to="/athletes" className="hover:underline">Athletes</Link>
+        <span style={{ color: 'var(--muted-2)' }}>/</span>
+        <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{athlete.name}</span>
+      </div>
+
+      {/* Hero */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4" style={{ paddingBottom: 22, borderBottom: '1px solid var(--line)' }}>
         <div>
-          <h1 className="text-2xl font-bold">{athlete.name}</h1>
-          <div className="flex gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
-            <span>{athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'}</span>
-            {athlete.nationality && <span>{athlete.nationality}</span>}
+          <div className="flex items-center gap-2.5" style={{ marginBottom: 10 }}>
+            {athlete.nationality && (
+              <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+                {athlete.nationality}
+              </span>
+            )}
+            <span className="micro" style={{ color: 'var(--muted-2)' }}>
+              {(athlete.gender === 'male' ? 'DECATHLON' : 'HEPTATHLON')}
+            </span>
           </div>
+          <h1 className="display" style={{ fontSize: 42, fontWeight: 700, margin: 0, letterSpacing: '-.03em', lineHeight: 1 }}>
+            {athlete.name}
+          </h1>
+          {athlete.waAthleteId && (
+            <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
+              World Athletics ID {athlete.waAthleteId}
+            </div>
+          )}
         </div>
+
         <div className="flex gap-2 shrink-0">
           <Link
             to={`/athletes/${athlete.id}?edit=true`}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+            className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+            style={{ background: 'var(--ink)', color: '#fff' }}
           >
             Edit
           </Link>
           <button
             onClick={onDelete}
-            className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 font-medium transition-colors"
+            className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+            style={{ background: 'var(--live-soft)', color: 'var(--live)' }}
           >
             Delete
           </button>
         </div>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
-        {athlete.combinedPB != null && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-              {athlete.gender === 'male' ? 'Decathlon' : 'Heptathlon'} PB
-            </div>
-            <div className="text-3xl font-bold text-amber-900 dark:text-amber-100 mt-1">{athlete.combinedPB}</div>
+      {/* PB module */}
+      <div
+        className="overflow-hidden"
+        style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1,
+          background: 'var(--line)', border: '1px solid var(--line)',
+          borderRadius: 12,
+        }}
+      >
+        <div style={{ background: 'var(--surface)', padding: '16px 20px' }}>
+          <div className="micro" style={{ color: 'var(--muted-2)' }}>
+            {athlete.gender === 'male' ? 'DECATHLON' : 'HEPTATHLON'} PB
           </div>
-        )}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-xl p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Sum of Event PBs</div>
-          <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-1">{totalPoints}</div>
+          <div className="num" style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, marginTop: 4 }}>
+            {athlete.combinedPB ?? '—'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--bg)', padding: '16px 20px' }}>
+          <div className="micro" style={{ color: 'var(--muted-2)' }}>SUM OF EVENT PBs</div>
+          <div className="num" style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, marginTop: 4 }}>
+            {totalPoints}
+          </div>
+          {athlete.combinedPB != null && totalPoints > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--pb)', marginTop: 4, fontWeight: 600 }}>
+              {Math.round((athlete.combinedPB / totalPoints) * 100)}% conversion
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Event cards */}
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Personal Bests</h2>
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800 text-left">
-                <th className="px-4 py-2.5 font-semibold text-gray-600 dark:text-gray-400">Event</th>
-                <th className="px-4 py-2.5 font-semibold text-gray-600 dark:text-gray-400 text-right">Performance</th>
-                <th className="px-4 py-2.5 font-semibold text-gray-600 dark:text-gray-400 text-right">Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) => {
-                const pb = athlete.personalBests[event.id];
-                const points = pb != null ? calculatePoints(event, pb) : null;
-                return (
-                  <tr key={event.id} className="border-b border-gray-100 dark:border-gray-800/50">
-                    <td className="px-4 py-2.5 font-medium">{event.name}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-gray-700 dark:text-gray-300">
-                      {pb != null ? formatPerformance(event, pb) : '—'}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                      {points ?? '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="font-bold border-t border-gray-200 dark:border-gray-700">
-                <td className="px-4 py-2.5">Total</td>
-                <td></td>
-                <td className="px-4 py-2.5 text-right font-mono">{totalPoints}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 14, letterSpacing: '.08em' }}>
+          PERSONAL BESTS · BY EVENT
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+          {eventPoints.map(({ event, pb, points }) => {
+            const avg = peerAvg[event.id];
+            const tag = getTag(event.id, points);
+            const tagColor = tag === 'strength' ? 'var(--pb)' : tag === 'weakness' ? 'var(--live)' : 'var(--muted-2)';
+            const diff = avg > 0 ? Math.round(points - avg) : 0;
+            return (
+              <div
+                key={event.id}
+                style={{
+                  background: 'var(--surface)', border: '1px solid var(--line)',
+                  borderRadius: 10, padding: '14px 14px 12px',
+                  position: 'relative', overflow: 'hidden',
+                }}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="micro" style={{ color: 'var(--muted-2)' }}>
+                    {String(event.order).padStart(2, '0')}
+                  </span>
+                  {points > 0 && (
+                    <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: tagColor }}>
+                      {tag}
+                    </span>
+                  )}
+                </div>
+                <div className="num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginTop: 4 }}>
+                  {event.name}
+                </div>
+                <div className="num" style={{ fontSize: 24, fontWeight: 800, marginTop: 8, letterSpacing: '-.01em' }}>
+                  {pb != null ? formatPerformance(event, pb) : '—'}
+                </div>
+                {points > 0 && (
+                  <>
+                    <div style={{ position: 'relative', marginTop: 10, height: 4, background: 'var(--bg-2)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: avg > 0 ? `${Math.min(100, (points / avg) * 50)}%` : '50%',
+                        background: tagColor,
+                      }} />
+                    </div>
+                    <div className="flex justify-between" style={{ marginTop: 6 }}>
+                      <span className="tnum" style={{ fontSize: 10, color: 'var(--muted)' }}>{points} pts</span>
+                      {avg > 0 && (
+                        <span className="tnum" style={{ fontSize: 10, color: diff > 0 ? 'var(--pb)' : diff < 0 ? 'var(--live)' : 'var(--muted-2)' }}>
+                          {diff > 0 ? '+' : ''}{diff} vs peers
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
