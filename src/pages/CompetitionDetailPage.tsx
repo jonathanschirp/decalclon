@@ -5,6 +5,7 @@ import { useAthletes } from '../hooks/useAthletes';
 import { Scoreboard } from '../components/competitions/Scoreboard';
 import { MobileScoreboard } from '../components/competitions/MobileScoreboard';
 import { CompetitionForm } from '../components/competitions/CompetitionForm';
+import { getCompetitionStatus } from '../lib/competitionStatus';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   upcoming: { label: 'Upcoming', color: 'var(--brand)', bg: 'var(--brand-soft)' },
@@ -53,7 +54,8 @@ export function CompetitionDetailPage() {
   }
 
   const enrolledAthletes = athletes.filter((a) => current.athleteIds.includes(a.id));
-  const status = statusConfig[current.status] || statusConfig.upcoming;
+  const derivedStatus = getCompetitionStatus(current.date);
+  const status = statusConfig[derivedStatus];
 
   return (
     <div className="space-y-4">
@@ -78,7 +80,7 @@ export function CompetitionDetailPage() {
             >
               {status.label}
             </span>
-            {current.status === 'in_progress' && (
+            {derivedStatus === 'in_progress' && (
               <span className="live-dot inline-block" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--live)' }} />
             )}
           </div>

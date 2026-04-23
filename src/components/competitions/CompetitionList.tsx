@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Competition } from '../../types';
+import { getCompetitionStatus } from '../../lib/competitionStatus';
 
 interface Props {
   competitions: Competition[];
@@ -26,7 +27,8 @@ export function CompetitionList({ competitions }: Props) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
       {competitions.map((comp, i) => {
-        const status = statusConfig[comp.status] || statusConfig.upcoming;
+        const derivedStatus = getCompetitionStatus(comp.date);
+        const status = statusConfig[derivedStatus];
         return (
           <Link
             key={comp.id}
@@ -49,7 +51,7 @@ export function CompetitionList({ competitions }: Props) {
                 >
                   {status.label}
                 </span>
-                {comp.status === 'in_progress' && (
+                {derivedStatus === 'in_progress' && (
                   <span className="live-dot inline-block" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--live)' }} />
                 )}
               </div>

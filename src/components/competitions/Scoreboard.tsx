@@ -126,6 +126,11 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
     [scores],
   );
 
+  const maxCurrent = useMemo(
+    () => Math.max(...scores.filter((s) => !s.withdrawn).map((s) => s.totalActualPoints), 0),
+    [scores],
+  );
+
   return (
     <div className="flex flex-col gap-5">
       {/* Event progress rail */}
@@ -137,16 +142,6 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
           <span className="micro" style={{ color: 'var(--muted-2)' }}>RANK BY</span>
           <div className="inline-flex bg-white p-[3px] gap-0.5 rounded-lg" style={{ border: '1px solid var(--line)' }}>
             <button
-              onClick={() => setSortMode('predicted')}
-              className="py-1.5 px-3 text-xs font-semibold rounded-md border-none cursor-pointer transition-colors"
-              style={{
-                background: sortMode === 'predicted' ? 'var(--ink)' : 'transparent',
-                color: sortMode === 'predicted' ? '#fff' : 'var(--muted)',
-              }}
-            >
-              Predicted final
-            </button>
-            <button
               onClick={() => setSortMode('current')}
               className="py-1.5 px-3 text-xs font-semibold rounded-md border-none cursor-pointer transition-colors"
               style={{
@@ -155,6 +150,16 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
               }}
             >
               Current standing
+            </button>
+            <button
+              onClick={() => setSortMode('predicted')}
+              className="py-1.5 px-3 text-xs font-semibold rounded-md border-none cursor-pointer transition-colors"
+              style={{
+                background: sortMode === 'predicted' ? 'var(--ink)' : 'transparent',
+                color: sortMode === 'predicted' ? '#fff' : 'var(--muted)',
+              }}
+            >
+              Predicted final
             </button>
           </div>
         </div>
@@ -201,11 +206,30 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                   </th>
                 );
               })}
-              <th className="sticky right-[116px] z-[3] w-[100px] py-2.5 px-2 text-center bg-white" style={{ borderBottom: '1px solid var(--line)' }}>
-                <span className="micro" style={{ color: 'var(--muted-2)' }}>CURRENT</span>
+              <th
+                className="sticky right-[116px] z-[3] py-2.5 px-2 text-center"
+                style={{
+                  boxSizing: 'border-box',
+                  width: 100, minWidth: 100, maxWidth: 100,
+                  background: sortMode === 'current' ? 'var(--ink)' : '#fff',
+                  borderBottom: sortMode === 'current' ? '1px solid var(--ink)' : '1px solid var(--line)',
+                  borderLeft: '1px solid var(--line)',
+                  boxShadow: '-4px 0 8px -2px rgba(14,16,20,.08)',
+                }}
+              >
+                <span className="micro" style={{ color: sortMode === 'current' ? '#fff' : 'var(--muted-2)', letterSpacing: '.14em', fontWeight: sortMode === 'current' ? 700 : 400 }}>CURRENT</span>
               </th>
-              <th className="sticky right-0 z-[3] w-[116px] py-2.5 px-2.5 text-center" style={{ background: 'var(--ink)', borderBottom: '1px solid var(--ink)' }}>
-                <span className="micro" style={{ color: '#fff', letterSpacing: '.14em', fontWeight: 700 }}>PREDICTED</span>
+              <th
+                className="sticky right-0 z-[3] py-2.5 px-2.5 text-center"
+                style={{
+                  boxSizing: 'border-box',
+                  width: 116, minWidth: 116, maxWidth: 116,
+                  background: sortMode === 'predicted' ? 'var(--ink)' : '#fff',
+                  borderBottom: sortMode === 'predicted' ? '1px solid var(--ink)' : '1px solid var(--line)',
+                  borderLeft: sortMode === 'predicted' ? '2px solid var(--ink)' : '1px solid var(--line)',
+                }}
+              >
+                <span className="micro" style={{ color: sortMode === 'predicted' ? '#fff' : 'var(--muted-2)', letterSpacing: '.14em', fontWeight: sortMode === 'predicted' ? 700 : 400 }}>PREDICTED</span>
               </th>
             </tr>
           </thead>
@@ -214,7 +238,9 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
               const isLast = idx === scores.length - 1;
               const cellBd = isLast ? 'none' : '1px solid var(--line)';
               const athlete = athleteMap.get(score.athleteId);
-              const gap = maxPred - score.predictedFinalScore;
+              const gap = sortMode === 'predicted'
+                ? maxPred - score.predictedFinalScore
+                : maxCurrent - score.totalActualPoints;
 
               return (
                 <tr key={score.athleteId} style={{ height: 54, opacity: score.withdrawn ? 0.55 : 1 }}>
@@ -348,25 +374,66 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                   })}
 
                   {/* Current total */}
-                  <td className="sticky right-[116px] z-[2] px-2 py-1.5 text-center bg-white" style={{ borderLeft: '1px solid var(--line)', borderBottom: cellBd }}>
-                    <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>
-                      {score.totalActualPoints || '—'}
-                    </div>
+                  <td
+                    className="sticky right-[116px] z-[2] px-2 py-1.5 text-center"
+                    style={{
+                      boxSizing: 'border-box',
+                      width: 100, minWidth: 100, maxWidth: 100,
+                      background: sortMode === 'current' ? '#FBFAF4' : '#fff',
+                      borderLeft: sortMode === 'current' ? '2px solid var(--ink)' : '1px solid var(--line)',
+                      borderBottom: cellBd,
+                      boxShadow: '-4px 0 8px -2px rgba(14,16,20,.08)',
+                    }}
+                  >
+                    {score.withdrawn ? (
+                      <span className="num" style={{ fontSize: sortMode === 'current' ? 22 : 18, color: 'var(--muted-2)' }}>—</span>
+                    ) : (
+                      sortMode === 'current' ? (
+                        <>
+                          <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+                            {score.totalActualPoints || '—'}
+                          </div>
+                          <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
+                            {gap === 0 ? 'LEADER' : `−${gap}`}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>
+                          {score.totalActualPoints || '—'}
+                        </div>
+                      )
+                    )}
                   </td>
 
                   {/* Predicted total */}
-                  <td className="sticky right-0 z-[2] px-2.5 py-1.5 text-center" style={{ background: '#FBFAF4', borderLeft: '2px solid var(--ink)', borderBottom: cellBd }}>
+                  <td
+                    className="sticky right-0 z-[2] px-2.5 py-1.5 text-center"
+                    style={{
+                      boxSizing: 'border-box',
+                      width: 116, minWidth: 116, maxWidth: 116,
+                      background: sortMode === 'predicted' ? '#FBFAF4' : '#fff',
+                      borderLeft: sortMode === 'predicted' ? '2px solid var(--ink)' : '1px solid var(--line)',
+                      borderBottom: cellBd,
+                      /* no shadow needed — CURRENT column shadow covers this */
+                    }}
+                  >
                     {score.withdrawn ? (
-                      <span className="num" style={{ fontSize: 22, color: 'var(--muted-2)' }}>—</span>
+                      <span className="num" style={{ fontSize: sortMode === 'predicted' ? 22 : 18, color: 'var(--muted-2)' }}>—</span>
                     ) : (
-                      <>
-                        <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+                      sortMode === 'predicted' ? (
+                        <>
+                          <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
+                            {score.predictedFinalScore}
+                          </div>
+                          <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
+                            {gap === 0 ? 'LEADER' : `−${gap}`}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>
                           {score.predictedFinalScore}
                         </div>
-                        <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
-                          {gap === 0 ? 'LEADER' : `−${gap}`}
-                        </div>
-                      </>
+                      )
                     )}
                   </td>
                 </tr>

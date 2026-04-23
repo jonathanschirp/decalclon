@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Competition, CompetitionType, CompetitionStatus, CompetitionResults } from '../../types';
+import type { Competition, CompetitionType, CompetitionResults } from '../../types';
 import { useCompetitions } from '../../hooks/useCompetition';
 import { useAthletes } from '../../hooks/useAthletes';
 import { CompetitionSearch, type CompetitionImportData } from './CompetitionSearch';
 import { fetchAthleteProfile, mapPersonalBests, extractCombinedPB } from '../../lib/worldathletics';
 import { updateAthlete } from '../../lib/firebase';
+import { getCompetitionStatus } from '../../lib/competitionStatus';
 
 interface Props {
   competition?: Competition;
@@ -19,12 +20,12 @@ export function CompetitionForm({ competition }: Props) {
   const [date, setDate] = useState(competition?.date ?? '');
   const [location, setLocation] = useState(competition?.location ?? '');
   const [type, setType] = useState<CompetitionType>(competition?.type ?? 'decathlon');
-  const [status, setStatus] = useState<CompetitionStatus>(competition?.status ?? 'upcoming');
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>(competition?.athleteIds ?? []);
   const [waCompetitionId, setWaCompetitionId] = useState<number | undefined>(competition?.waCompetitionId);
   const [waEventId, setWaEventId] = useState<number | undefined>(competition?.waEventId);
   const [waAthleteMap, setWaAthleteMap] = useState<Record<string, string>>(competition?.waAthleteMap ?? {});
   const [importedResults, setImportedResults] = useState<CompetitionResults | null>(null);
+  const [imported, setImported] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Athlete search / filter
@@ -45,7 +46,6 @@ export function CompetitionForm({ competition }: Props) {
     [athletes, gender],
   );
 
-  // Split into selected and unselected, each filtered by search
   const filterBySearch = useMemo(() => {
     const q = athleteSearch.toLowerCase().trim();
     if (!q) return eligibleAthletes;
@@ -67,7 +67,6 @@ export function CompetitionForm({ competition }: Props) {
     [filterBySearch, selectedSet],
   );
 
-  // Count of selected athletes with WA profile
   const waLinkedCount = useMemo(
     () => eligibleAthletes.filter((a) => selectedSet.has(a.id) && a.waAthleteId).length,
     [eligibleAthletes, selectedSet],
@@ -109,7 +108,6 @@ export function CompetitionForm({ competition }: Props) {
           // Skip individual failures silently
         }
       }
-      // Refresh athlete list to pick up new PBs
       await fetchAthletes();
     } finally {
       setReloading(false);
@@ -122,17 +120,18 @@ export function CompetitionForm({ competition }: Props) {
     setDate(data.date);
     setLocation(data.location);
     setType(data.type);
-    setStatus(Object.keys(data.results).length > 0 ? 'in_progress' : 'upcoming');
     setSelectedAthletes(data.athleteIds);
     setWaCompetitionId(data.waCompetitionId);
     setWaEventId(data.waEventId);
     setWaAthleteMap(data.waAthleteMap);
     setImportedResults(data.results);
+    setImported(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    const status = getCompetitionStatus(date);
     try {
       if (competition) {
         await update(competition.id, {
@@ -159,205 +158,370 @@ export function CompetitionForm({ competition }: Props) {
     }
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      {!competition && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 dark:text-gray-100">Import from World Athletics</h3>
-          <CompetitionSearch onImport={handleImport} />
-        </div>
-      )}
+  const ghostStyle = (isGhost: boolean, mono?: boolean): React.CSSProperties => ({
+    width: '100%', padding: '9px 10px',
+    border: `1px solid ${isGhost ? '#C2E5D0' : 'var(--line)'}`,
+    background: isGhost ? 'var(--pb-soft)' : '#fff',
+    borderRadius: 6, fontSize: 13, color: 'var(--ink)',
+    fontFamily: mono ? "'JetBrains Mono', monospace" : 'inherit',
+    outline: 'none',
+  });
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+  return (
+    <form onSubmit={handleSubmit} className="max-w-[900px]" style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+      {/* 01 · NAME — the search hero */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12,
+        padding: 20, position: 'relative',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span className="micro" style={{ color: 'var(--muted-2)' }}>01 · NAME</span>
+          {!competition && (
+            <>
+              {name.trim().length < 2 ? (
+                <span className="micro" style={{
+                  padding: '3px 10px', borderRadius: 6,
+                  background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--muted)',
+                }}>Type 2+ characters</span>
+              ) : imported ? (
+                <span className="micro" style={{
+                  padding: '3px 10px', borderRadius: 6,
+                  background: 'var(--pb-soft)', border: '1px solid #C2E5D0', color: 'var(--pb)', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  <span style={{ width: 5, height: 5, borderRadius: 99, background: 'var(--pb)' }} />
+                  IMPORTED · {selectedAthletes.length} ATHLETES
+                </span>
+              ) : null}
+            </>
+          )}
+        </div>
+        <input
+          type="text"
+          required
+          value={name}
+          onChange={(e) => { setName(e.target.value); setImported(false); }}
+          placeholder={competition ? 'Competition name' : 'Search WA calendar...'}
+          className="display"
+          style={{
+            width: '100%', border: 'none', outline: 'none',
+            fontSize: 30, fontWeight: 700, letterSpacing: '-.02em',
+            padding: '6px 0', color: 'var(--ink)', background: 'transparent',
+          }}
+        />
+
+        {/* Progress underline */}
+        {!competition && (
+          <div style={{ marginTop: 10, height: 2, background: 'var(--line)', overflow: 'hidden', borderRadius: 2 }}>
+            <div style={{
+              height: '100%',
+              width: imported ? '100%' : name.trim().length >= 2 ? '100%' : '0%',
+              background: imported ? 'var(--pb)' : 'var(--ink)',
+              transition: 'width .35s ease',
+            }} />
+          </div>
+        )}
+
+        {/* Search results / flow */}
+        {!competition && (
+          <CompetitionSearch
+            query={name}
+            disabled={imported}
+            onImport={handleImport}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
-          <input
-            type="date"
-            required
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-          <select
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as CompetitionType);
-              setSelectedAthletes([]);
-            }}
-            disabled={!!competition}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="decathlon">Decathlon (Men)</option>
-            <option value="heptathlon">Heptathlon (Women)</option>
-          </select>
-        </div>
-        {competition && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CompetitionStatus)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        )}
+
+        {/* Imported confirmation banner */}
+        {imported && waCompetitionId && (
+          <div style={{
+            marginTop: 14, padding: '12px 14px',
+            background: 'var(--pb-soft)', border: '1px solid #C2E5D0',
+            borderRadius: 10,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>
+                <span style={{ color: 'var(--pb)' }}>{name}</span> imported · {selectedAthletes.length} athletes
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                Results will sync from World Athletics as they are published.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setImported(false); setWaCompetitionId(undefined); setWaEventId(undefined); }}
+              style={{
+                padding: '6px 10px', fontSize: 12, fontWeight: 600,
+                background: '#fff', border: '1px solid var(--line)',
+                borderRadius: 6, cursor: 'pointer',
+              }}
             >
-              <option value="upcoming">Upcoming</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
+              Unlink
+            </button>
           </div>
         )}
       </div>
 
-      {/* Athlete enrollment section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold dark:text-gray-100">
-            Athletes
-            <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-              {selectedAthletes.length} selected
-            </span>
-          </h3>
-          {waLinkedCount > 0 && (
-            <button
-              type="button"
-              onClick={handleReloadPBs}
-              disabled={reloading}
-              className="px-3 py-1.5 text-xs bg-slate-700 text-white rounded hover:bg-slate-800 disabled:opacity-50"
-            >
-              {reloading ? 'Reloading...' : `Reload PBs (${waLinkedCount})`}
-            </button>
+      {/* 02 · DETAILS */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 20,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span className="micro" style={{ color: 'var(--muted-2)' }}>02 · DETAILS</span>
+          {imported && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700 }}>AUTO-FILLED</span>}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {/* Start date */}
+          <div>
+            <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>START DATE</div>
+            <input
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="mono tnum"
+              style={ghostStyle(imported, true)}
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>LOCATION</div>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="City, Country"
+              style={ghostStyle(imported)}
+            />
+          </div>
+
+          {/* Discipline toggle — hidden on edit since type can't change */}
+          {!competition && (
+            <div>
+              <div className="micro" style={{ color: 'var(--muted-2)', marginBottom: 6 }}>DISCIPLINE</div>
+              <div style={{ display: 'flex', background: 'var(--bg)', padding: 3, borderRadius: 8, border: '1px solid var(--line)' }}>
+                {(['decathlon', 'heptathlon'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { setType(t); setSelectedAthletes([]); }}
+                    style={{
+                      flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 600,
+                      background: type === t ? 'var(--ink)' : 'transparent',
+                      color: type === t ? '#fff' : 'var(--muted)',
+                      border: 'none', borderRadius: 6, cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
+        </div>
+      </div>
+
+      {/* 03 · ATHLETES */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '14px 20px', borderBottom: '1px solid var(--line)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: 8,
+        }}>
+          <span className="micro" style={{ color: 'var(--muted-2)' }}>03 · ATHLETES</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+              <span className="tnum" style={{ color: 'var(--ink)', fontWeight: 700 }}>{selectedAthletes.length}</span> enrolled
+              {waLinkedCount > 0 && (
+                <span> · <span className="tnum" style={{ color: 'var(--pb)', fontWeight: 700 }}>{waLinkedCount}</span> linked to WA</span>
+              )}
+            </span>
+            {waLinkedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleReloadPBs}
+                disabled={reloading}
+                style={{
+                  padding: '6px 10px', fontSize: 11, fontWeight: 600,
+                  background: '#fff', border: '1px solid var(--line)',
+                  borderRadius: 6, cursor: 'pointer',
+                  opacity: reloading ? 0.5 : 1,
+                }}
+              >
+                {reloading ? 'Reloading...' : 'Reload PBs'}
+              </button>
+            )}
+          </div>
         </div>
 
         {reloading && reloadProgress && (
-          <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-3 py-2">
+          <div style={{
+            padding: '8px 20px',
+            borderBottom: '1px solid var(--line)',
+            fontSize: 11, color: 'var(--muted)',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span className="live-dot" style={{ width: 6, height: 6, background: 'var(--muted)', borderRadius: 99 }} />
             {reloadProgress}
           </div>
         )}
 
-        {/* Search input */}
-        <input
-          type="text"
-          value={athleteSearch}
-          onChange={(e) => setAthleteSearch(e.target.value)}
-          placeholder="Search athletes by name or nationality..."
-          className="w-full px-3 py-2 mb-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {/* Search bar */}
+        <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
+          <input
+            type="text"
+            value={athleteSearch}
+            onChange={(e) => setAthleteSearch(e.target.value)}
+            placeholder="Filter athletes by name or nationality..."
+            style={{
+              width: '100%', padding: '8px 10px',
+              border: '1px solid var(--line)', borderRadius: 6,
+              background: '#fff', fontSize: 12, color: 'var(--ink)',
+              outline: 'none',
+            }}
+          />
+        </div>
 
         {eligibleAthletes.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            No {type === 'decathlon' ? 'male' : 'female'} athletes available.
-          </p>
+          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              No {type === 'decathlon' ? 'male' : 'female'} athletes available. Add athletes first.
+            </div>
+          </div>
         ) : (
-          <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+          <>
             {/* Selected athletes */}
-            {selectedList.length > 0 && (
-              <div className="bg-blue-50/50 dark:bg-blue-900/20">
-                {selectedList.map((athlete) => (
-                  <label
-                    key={athlete.id}
-                    className="flex items-center gap-3 px-3 py-2.5 border-b border-blue-100 dark:border-blue-900/40 last:border-b-0 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => toggleAthlete(athlete.id)}
-                      className="rounded text-blue-600"
-                    />
-                    <span className="text-sm font-medium flex-1 min-w-0 truncate">{athlete.name}</span>
-                    {athlete.nationality && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{athlete.nationality}</span>
-                    )}
-                    {athlete.combinedPB != null && (
-                      <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400 shrink-0">{athlete.combinedPB}</span>
-                    )}
-                    {athlete.waAthleteId && (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0" title="Linked to World Athletics">WA</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
+            {selectedList.map((athlete, i) => (
+              <label
+                key={athlete.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px',
+                  borderBottom: '1px solid var(--line)',
+                  cursor: 'pointer', background: '#fff',
+                }}
+              >
+                <span className="num tnum hidden sm:inline" style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-2)', width: 24, textAlign: 'center', flexShrink: 0 }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <input
+                  type="checkbox"
+                  checked
+                  onChange={() => toggleAthlete(athlete.id)}
+                  style={{ accentColor: 'var(--ink)', flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {athlete.name}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                    {athlete.nationality}{athlete.waAthleteId ? ' · WA-linked' : ''}
+                  </div>
+                </div>
+                {athlete.combinedPB != null && (
+                  <span className="num tnum" style={{ fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+                    {athlete.combinedPB}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); toggleAthlete(athlete.id); }}
+                  className="hidden sm:inline"
+                  style={{
+                    padding: '4px 8px', fontSize: 11, fontWeight: 600,
+                    color: 'var(--muted)', background: 'transparent',
+                    border: 'none', cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  Remove
+                </button>
+              </label>
+            ))}
 
-            {/* Divider between selected and unselected */}
+            {/* Divider */}
             {selectedList.length > 0 && unselectedList.length > 0 && (
-              <div className="border-t-2 border-gray-300 dark:border-gray-600" />
+              <div style={{ borderTop: '2px solid var(--line-2)' }} />
             )}
 
             {/* Unselected athletes */}
-            {unselectedList.length > 0 && (
-              <div className="max-h-52 overflow-y-auto">
-                {unselectedList.map((athlete) => (
-                  <label
-                    key={athlete.id}
-                    className="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => toggleAthlete(athlete.id)}
-                      className="rounded"
-                    />
-                    <span className="text-sm flex-1 min-w-0 truncate">{athlete.name}</span>
-                    {athlete.nationality && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{athlete.nationality}</span>
-                    )}
-                    {athlete.combinedPB != null && (
-                      <span className="text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">{athlete.combinedPB}</span>
-                    )}
-                    {athlete.waAthleteId && (
-                      <span className="text-[10px] text-slate-300 dark:text-slate-600 shrink-0" title="Linked to World Athletics">WA</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {unselectedList.map((athlete) => (
+                <label
+                  key={athlete.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 14px',
+                    borderBottom: '1px solid var(--line)',
+                    cursor: 'pointer', background: 'transparent',
+                    opacity: 0.7,
+                  }}
+                >
+                  <span className="hidden sm:inline" style={{ width: 24, flexShrink: 0 }} />
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    onChange={() => toggleAthlete(athlete.id)}
+                    style={{ accentColor: 'var(--ink)', flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{athlete.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                      {athlete.nationality}
+                    </div>
+                  </div>
+                  {athlete.combinedPB != null && (
+                    <span className="num tnum" style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }}>{athlete.combinedPB}</span>
+                  )}
+                </label>
+              ))}
+            </div>
 
             {filterBySearch.length === 0 && athleteSearch.trim() && (
-              <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                No athletes match "{athleteSearch}"
+              <div style={{ padding: '20px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+                No athletes match &ldquo;{athleteSearch}&rdquo;
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={saving || !name.trim() || !date}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : competition ? 'Update Competition' : 'Create Competition'}
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
-          Cancel
-        </button>
+      {/* Actions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+          {imported && waCompetitionId
+            ? <>Linked to WA competition · results will sync automatically.</>
+            : <>No WA link — you can still save manually.</>
+          }
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              padding: '10px 20px', fontSize: 13, fontWeight: 600,
+              border: '1px solid var(--line)', background: 'var(--surface)',
+              color: 'var(--ink)', borderRadius: 8, cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving || !name.trim() || !date}
+            style={{
+              padding: '10px 20px', fontSize: 13, fontWeight: 600,
+              border: '1px solid var(--ink)', background: 'var(--ink)',
+              color: '#fff', borderRadius: 8, cursor: 'pointer',
+              opacity: saving || !name.trim() || !date ? 0.5 : 1,
+            }}
+          >
+            {saving ? 'Saving...' : competition ? 'Update competition' : 'Create competition'}
+          </button>
+        </div>
       </div>
     </form>
   );

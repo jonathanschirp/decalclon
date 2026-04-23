@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { CompetitionType, CompetitionResults } from '../../types';
 import {
   searchCompetitions,
@@ -31,6 +31,8 @@ export interface CompetitionImportData {
 }
 
 interface Props {
+  query: string;
+  disabled?: boolean;
   onImport: (data: CompetitionImportData) => void;
 }
 
@@ -44,11 +46,12 @@ interface AthleteRow {
   selected: boolean;
 }
 
-export function CompetitionSearch({ onImport }: Props) {
+const DEBOUNCE_MS = 600;
+
+export function CompetitionSearch({ query, disabled, onImport }: Props) {
   const { athletes: dbAthletes, create: createAthlete, fetch: refreshAthletes } = useAthletes();
 
   const [step, setStep] = useState<Step>('search');
-  const [query, setQuery] = useState('');
   const [competitions, setCompetitions] = useState<WACompetition[]>([]);
   const [selectedComp, setSelectedComp] = useState<WACompetition | null>(null);
   const [combinedEvents, setCombinedEvents] = useState<WACombinedEvent[]>([]);
@@ -59,32 +62,68 @@ export function CompetitionSearch({ onImport }: Props) {
   const [loading, setLoading] = useState(false);
   const [importProgress, setImportProgress] = useState('');
   const [error, setError] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSearchRef = useRef('');
 
-  const handleSearch = async () => {
-    if (query.trim().length < 2) return;
-    setSearching(true);
-    setError('');
-    setCompetitions([]);
-    setStep('search');
-    try {
-      const results = await searchCompetitions(query.trim());
-      setCompetitions(results);
-      if (results.length === 0) setError('No competitions found.');
-    } catch {
-      setError('Search failed. The World Athletics API may be unavailable.');
-    } finally {
+  // Clear results when disabled
+  useEffect(() => {
+    if (disabled) {
+      setCompetitions([]);
+      setError('');
       setSearching(false);
+      setStep('search');
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     }
-  };
+  }, [disabled]);
+
+  // Auto-search with debounce when query changes
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (disabled) return;
+
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setCompetitions([]);
+      setError('');
+      setStep('search');
+      lastSearchRef.current = '';
+      return;
+    }
+
+    if (trimmed === lastSearchRef.current) return;
+
+    setSearching(true);
+
+    debounceRef.current = setTimeout(async () => {
+      lastSearchRef.current = trimmed;
+      setError('');
+      setCompetitions([]);
+      setStep('search');
+      try {
+        const results = await searchCompetitions(trimmed);
+        setCompetitions(results);
+        if (results.length === 0) setError('No competitions found on World Athletics.');
+      } catch {
+        setError('Search failed. The World Athletics API may be unavailable.');
+      } finally {
+        setSearching(false);
+      }
+    }, DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, disabled]);
 
   const handleSelectCompetition = async (comp: WACompetition) => {
     setSelectedComp(comp);
     setLoading(true);
     setError('');
+    setCompetitions([]);
     try {
       const events = await fetchCombinedEvents(comp.id);
       if (events.length === 0) {
-        // No results data yet (future competition) — import metadata only
         setStep('metadata-only');
         setLoading(false);
         return;
@@ -97,7 +136,6 @@ export function CompetitionSearch({ onImport }: Props) {
         setLoading(false);
       }
     } catch {
-      // API error (typical for future competitions) — fall back to metadata-only import
       setStep('metadata-only');
       setLoading(false);
     }
@@ -108,7 +146,6 @@ export function CompetitionSearch({ onImport }: Props) {
     setLoading(true);
     setError('');
     try {
-      // Try results first (completed or in-progress competitions)
       const results = await fetchEventResults(comp.id, event.id);
 
       let rows: AthleteRow[];
@@ -132,7 +169,6 @@ export function CompetitionSearch({ onImport }: Props) {
           };
         });
       } else {
-        // No results yet — try start list (upcoming competitions)
         const startList = await fetchStartList(comp.id, event.id);
         if (startList.length > 0) {
           setWaResults([]);
@@ -148,13 +184,12 @@ export function CompetitionSearch({ onImport }: Props) {
             return {
               name,
               nationality: s.country,
-              iaafId: -(i + 1), // negative placeholder since start list has no iaafId
+              iaafId: -(i + 1),
               existingId,
               selected: true,
             };
           });
         } else {
-          // Neither results nor start list — metadata-only
           setStep('metadata-only');
           setLoading(false);
           return;
@@ -206,7 +241,6 @@ export function CompetitionSearch({ onImport }: Props) {
           continue;
         }
 
-        // Create new athlete: search WA to get aaAthleteId, then fetch PBs
         setImportProgress(`Creating athlete ${i + 1}/${selected.length}: ${row.name}`);
 
         let waAthleteId: string | undefined;
@@ -215,7 +249,6 @@ export function CompetitionSearch({ onImport }: Props) {
 
         try {
           const searchResults = await searchAthletes(row.name);
-          // Match by country + closest name
           const match = searchResults.find(
             (s) => s.country === row.nationality,
           ) ?? searchResults[0];
@@ -235,8 +268,8 @@ export function CompetitionSearch({ onImport }: Props) {
           gender,
           nationality: row.nationality,
           personalBests: pbs,
-          combinedPB,
-          waAthleteId,
+          ...(combinedPB != null && { combinedPB }),
+          ...(waAthleteId != null && { waAthleteId }),
         });
 
         iaafIdToAthleteId[String(row.iaafId)] = id;
@@ -245,7 +278,6 @@ export function CompetitionSearch({ onImport }: Props) {
 
       const results = mapEventResults(waResults, type, iaafIdToAthleteId);
 
-      // Build the waAthleteMap for future syncing (only real iaafIds, not placeholders)
       const waAthleteMap: Record<string, string> = {};
       for (const [iaafId, athleteId] of Object.entries(iaafIdToAthleteId)) {
         if (Number(iaafId) > 0) {
@@ -281,79 +313,112 @@ export function CompetitionSearch({ onImport }: Props) {
   const newCount = athleteRows.filter((r) => r.selected && !r.existingId).length;
   const existingCount = athleteRows.filter((r) => r.selected && r.existingId).length;
 
+  const showSearching = searching && !disabled;
+  const showResults = !searching && competitions.length > 0 && step === 'search' && !disabled;
+
   return (
-    <div className="space-y-3">
-      {/* Search */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
-          placeholder="Search World Athletics competitions (e.g. Gotzis, Ratingen)"
-          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={searching || query.trim().length < 2}
-          className="px-4 py-2 bg-slate-700 text-white rounded-md hover:bg-slate-800 disabled:opacity-50"
-        >
-          {searching ? 'Searching...' : 'Search'}
-        </button>
-      </div>
+    <>
+      {error && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--live)' }}>{error}</div>
+      )}
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {showSearching && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="live-dot" style={{ width: 6, height: 6, background: 'var(--muted)', borderRadius: 99 }} />
+          Searching World Athletics calendar...
+        </div>
+      )}
 
-      {/* Competition results */}
-      {step === 'search' && competitions.length > 0 && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800 text-left">
-                <th className="px-3 py-2 font-medium">Competition</th>
-                <th className="px-3 py-2 font-medium">Venue</th>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {competitions.slice(0, 15).map((comp) => (
-                <tr key={comp.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
-                  <td className="px-3 py-2 font-medium">{comp.name}</td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{comp.venue}</td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{comp.startDate}</td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectCompetition(comp)}
-                      disabled={loading}
-                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Select
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {showResults && (
+        <div style={{
+          marginTop: 14,
+          border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden',
+          background: 'var(--bg)',
+        }}>
+          <div style={{
+            padding: '10px 14px', background: 'var(--bg-2)',
+            borderBottom: '1px solid var(--line)',
+          }}>
+            <span className="micro" style={{ color: 'var(--muted-2)' }}>
+              WORLD ATHLETICS CALENDAR · {competitions.length} MATCHES
+            </span>
+          </div>
+          {competitions.slice(0, 15).map((comp, i) => {
+            const dateParts = comp.startDate.split('-');
+            const shortDate = dateParts.length === 3
+              ? `${dateParts[2]}/${dateParts[1]}`
+              : comp.startDate;
+            return (
+              <button
+                key={comp.id}
+                type="button"
+                onClick={() => handleSelectCompetition(comp)}
+                disabled={loading}
+                style={{
+                  width: '100%', display: 'grid',
+                  gridTemplateColumns: '80px 1fr auto',
+                  gap: 14, alignItems: 'center',
+                  padding: '14px',
+                  borderBottom: i < Math.min(competitions.length, 15) - 1 ? '1px solid var(--line)' : 'none',
+                  background: i === 0 ? '#fff' : 'transparent',
+                  border: 'none',
+                  borderLeft: i === 0 ? '3px solid var(--ink)' : '3px solid transparent',
+                  textAlign: 'left', cursor: loading ? 'wait' : 'pointer',
+                  opacity: loading ? 0.5 : 1,
+                }}
+              >
+                <div className="num tnum" style={{
+                  fontWeight: 800, fontSize: 16,
+                  color: 'var(--ink)',
+                }}>
+                  {shortDate}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{comp.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                    {comp.venue}
+                  </div>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--ink-2)', fontWeight: 600 }}>
+                  Select &rarr;
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="live-dot" style={{ width: 6, height: 6, background: 'var(--muted)', borderRadius: 99 }} />
+          Loading competition data...
         </div>
       )}
 
       {/* Event selection (when multiple combined events) */}
       {step === 'events' && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 space-y-2">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {selectedComp?.name} has multiple combined events. Select one:
-          </p>
-          <div className="flex gap-2">
+        <div style={{
+          marginTop: 14, padding: '14px',
+          border: '1px solid var(--line)', borderRadius: 10,
+          background: 'var(--bg)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+            {selectedComp?.name} has multiple combined events:
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
             {combinedEvents.map((event) => (
               <button
                 key={event.id}
                 type="button"
                 onClick={() => handleSelectEvent(selectedComp!, event)}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                style={{
+                  padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                  background: 'var(--ink)', color: '#fff',
+                  border: 'none', borderRadius: 6, cursor: 'pointer',
+                  opacity: loading ? 0.5 : 1,
+                }}
               >
                 {event.name}
               </button>
@@ -364,25 +429,37 @@ export function CompetitionSearch({ onImport }: Props) {
 
       {/* Metadata-only import for future competitions */}
       {step === 'metadata-only' && selectedComp && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4 space-y-2">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {selectedComp.name} ({selectedComp.startDate}) — no results data available yet.
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Import competition metadata and select the event type. You can add athletes manually and sync results once the competition starts.
-          </p>
-          <div className="flex gap-2">
+        <div style={{
+          marginTop: 14, padding: '14px',
+          border: '1px solid var(--line)', borderRadius: 10,
+          background: 'var(--bg)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {selectedComp.name} ({selectedComp.startDate})
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, marginBottom: 10 }}>
+            No results data available yet. Import metadata and select the event type.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
               onClick={() => handleMetadataImport('decathlon')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              style={{
+                padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                background: 'var(--ink)', color: '#fff',
+                border: 'none', borderRadius: 6, cursor: 'pointer',
+              }}
             >
               Import as Decathlon
             </button>
             <button
               type="button"
               onClick={() => handleMetadataImport('heptathlon')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              style={{
+                padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                background: 'var(--ink)', color: '#fff',
+                border: 'none', borderRadius: 6, cursor: 'pointer',
+              }}
             >
               Import as Heptathlon
             </button>
@@ -390,82 +467,100 @@ export function CompetitionSearch({ onImport }: Props) {
         </div>
       )}
 
-      {/* Loading state */}
-      {loading && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading competition data...</p>
-      )}
-
       {/* Athlete preview */}
       {step === 'athletes' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {selectedComp?.name} — {selectedEvent?.name}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {existingCount} existing, {newCount} new athletes to create
-              </p>
+        <div style={{ marginTop: 14 }}>
+          <div style={{
+            border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden',
+            background: 'var(--bg)',
+          }}>
+            <div style={{
+              padding: '10px 14px', background: 'var(--bg-2)',
+              borderBottom: '1px solid var(--line)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span className="micro" style={{ color: 'var(--muted-2)' }}>
+                {selectedComp?.name} · {selectedEvent?.name}
+              </span>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  <span className="tnum" style={{ fontWeight: 700, color: 'var(--ink)' }}>{existingCount}</span> existing ·{' '}
+                  <span className="tnum" style={{ fontWeight: 700, color: 'var(--brand)' }}>{newCount}</span> new
+                </span>
+                <button
+                  type="button"
+                  onClick={handleImport}
+                  disabled={athleteRows.every((r) => !r.selected)}
+                  style={{
+                    padding: '6px 12px', fontSize: 12, fontWeight: 600,
+                    background: 'var(--ink)', color: '#fff',
+                    border: 'none', borderRadius: 6, cursor: 'pointer',
+                    opacity: athleteRows.every((r) => !r.selected) ? 0.5 : 1,
+                  }}
+                >
+                  Import
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={athleteRows.every((r) => !r.selected)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              Import Competition
-            </button>
-          </div>
 
-          <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden max-h-80 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
-                <tr className="text-left">
-                  <th className="px-3 py-2 w-8"></th>
-                  <th className="px-3 py-2 font-medium">Athlete</th>
-                  <th className="px-3 py-2 font-medium">Country</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {athleteRows.map((row, i) => (
-                  <tr key={row.iaafId} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={row.selected}
-                        onChange={() => toggleAthlete(i)}
-                        className="rounded"
-                      />
-                    </td>
-                    <td className="px-3 py-2 font-medium">{row.name}</td>
-                    <td className="px-3 py-2">{row.nationality}</td>
-                    <td className="px-3 py-2">
-                      {row.existingId ? (
-                        <span className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded">Exists</span>
-                      ) : (
-                        <span className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">New</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {athleteRows.map((row, i) => (
+                <label
+                  key={row.iaafId}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '28px 1fr 60px auto',
+                    padding: '10px 14px', alignItems: 'center', gap: 10,
+                    borderBottom: i < athleteRows.length - 1 ? '1px solid var(--line)' : 'none',
+                    cursor: 'pointer',
+                    background: row.selected ? '#fff' : 'transparent',
+                    opacity: row.selected ? 1 : 0.5,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.selected}
+                    onChange={() => toggleAthlete(i)}
+                    style={{ accentColor: 'var(--ink)' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{row.name}</div>
+                    {row.existingId && (
+                      <div style={{ fontSize: 10, color: 'var(--pb)' }}>Already in roster</div>
+                    )}
+                  </div>
+                  <span className="mono" style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>
+                    {row.nationality}
+                  </span>
+                  {!row.existingId && (
+                    <span className="micro" style={{
+                      padding: '2px 6px', borderRadius: 4,
+                      background: 'var(--brand-soft)', color: 'var(--brand)', fontWeight: 700,
+                    }}>NEW</span>
+                  )}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* Importing progress */}
       {step === 'importing' && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
-          <p className="text-sm text-gray-700 dark:text-gray-300">{importProgress || 'Importing...'}</p>
+        <div style={{
+          marginTop: 14, padding: '12px 14px',
+          border: '1px solid var(--line)', borderRadius: 10,
+          background: 'var(--bg)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span className="live-dot" style={{ width: 6, height: 6, background: 'var(--muted)', borderRadius: 99 }} />
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{importProgress || 'Importing...'}</span>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-/** Convert "Damian WARNER" → "Damian Warner" */
+/** Convert "Damian WARNER" -> "Damian Warner" */
 function formatWAName(name: string): string {
   return name
     .split(' ')

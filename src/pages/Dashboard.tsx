@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAthletes } from '../hooks/useAthletes';
 import { useCompetitions } from '../hooks/useCompetition';
+import { getCompetitionStatus } from '../lib/competitionStatus';
 
 export function Dashboard() {
   const { athletes, fetch: fetchAthletes } = useAthletes();
@@ -12,9 +13,9 @@ export function Dashboard() {
     fetchCompetitions();
   }, [fetchAthletes, fetchCompetitions]);
 
-  const activeComps = competitions.filter((c) => c.status === 'in_progress');
-  const upcomingComps = competitions.filter((c) => c.status === 'upcoming');
-  const completedComps = competitions.filter((c) => c.status === 'completed');
+  const activeComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'in_progress');
+  const upcomingComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'upcoming');
+  const completedComps = competitions.filter((c) => getCompetitionStatus(c.date) === 'completed');
 
   const hasCompetitions = competitions.length > 0;
 
