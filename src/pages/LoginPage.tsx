@@ -26,20 +26,8 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'var(--ink)', color: '#fff',
-              fontSize: 14, fontWeight: 800,
-            }}
-          >
-            D
-          </div>
-          <h1 className="display" style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--ink)' }}>
-            Decalclon
-          </h1>
+        <div className="flex items-center justify-center mb-8">
+          <img src="/decalclon-logo.svg" alt="Decalclon" style={{ height: 40 }} />
         </div>
         <form
           onSubmit={handleSubmit}

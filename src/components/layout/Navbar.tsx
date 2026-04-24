@@ -26,21 +26,9 @@ export function Navbar() {
             <Link
               to="/"
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2.5"
+              className="flex items-center"
             >
-              <div
-                className="flex items-center justify-center"
-                style={{
-                  width: 28, height: 28, borderRadius: 7,
-                  background: 'var(--ink)', color: '#fff',
-                  fontSize: 12, fontWeight: 800,
-                }}
-              >
-                D
-              </div>
-              <span className="display" style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: 'var(--ink)' }}>
-                Decalclon
-              </span>
+              <img src="/decalclon-logo.svg" alt="Decalclon" style={{ height: 28 }} />
             </Link>
 
             {/* Desktop nav */}
