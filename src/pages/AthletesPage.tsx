@@ -51,7 +51,9 @@ export function AthletesPage() {
 
     const sorted = [...list].sort((a, b) => {
       if (sortField === 'name') {
-        const cmp = a.name.localeCompare(b.name);
+        const aSurname = a.name.split(' ').at(-1) ?? a.name;
+        const bSurname = b.name.split(' ').at(-1) ?? b.name;
+        const cmp = aSurname.localeCompare(bSurname) || a.name.localeCompare(b.name);
         return sortDir === 'asc' ? cmp : -cmp;
       }
       const aPB = a.combinedPB ?? -1;

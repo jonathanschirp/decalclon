@@ -17,7 +17,8 @@ const countryOptions = COUNTRIES.map((c) => ({ value: c, label: c }));
 
 const LONG_TRACK_IDS = new Set(['dec_400m', 'dec_1500m', 'hep_800m']);
 
-function filterPerformanceInput(value: string, event: EventDefinition): string {
+function filterPerformanceInput(rawValue: string, event: EventDefinition): string {
+  const value = rawValue.replace(/,/g, '.');
   if (event.type === 'field') {
     let filtered = '';
     let hasDot = false;
@@ -109,11 +110,17 @@ export function AthleteForm({ athlete }: Props) {
 
   const totalPoints = events.reduce((sum, e) => sum + (getPoints(e.id) ?? 0), 0);
 
-  const placeholder = (event: EventDefinition) => {
-    if (event.type === 'field') return 'e.g. 7.65';
-    if (LONG_TRACK_IDS.has(event.id)) return 'e.g. 4:11.30';
-    return 'e.g. 10.85';
+  const PLACEHOLDERS: Record<string, string> = {
+    dec_100m: 'e.g. 10.64', dec_long_jump: 'e.g. 7.84', dec_shot_put: 'e.g. 16.05',
+    dec_high_jump: 'e.g. 2.11', dec_400m: 'e.g. 47.12', dec_110m_hurdles: 'e.g. 13.72',
+    dec_discus: 'e.g. 50.32', dec_pole_vault: 'e.g. 5.20', dec_javelin: 'e.g. 71.18',
+    dec_1500m: 'e.g. 4:21.30',
+    hep_100m_hurdles: 'e.g. 12.84', hep_high_jump: 'e.g. 1.92', hep_shot_put: 'e.g. 14.28',
+    hep_200m: 'e.g. 23.15', hep_long_jump: 'e.g. 6.68', hep_javelin: 'e.g. 53.86',
+    hep_800m: 'e.g. 2:08.50',
   };
+  const placeholder = (event: EventDefinition) =>
+    PLACEHOLDERS[event.id] ?? (event.type === 'field' ? 'e.g. 7.65' : 'e.g. 10.85');
 
   const ghostStyle = (isGhost: boolean, mono?: boolean): React.CSSProperties => ({
     width: '100%', padding: '9px 10px',
@@ -380,7 +387,7 @@ export function AthleteForm({ athlete }: Props) {
                 </div>
                 <input
                   type="text"
-                  inputMode="decimal"
+                  inputMode={LONG_TRACK_IDS.has(event.id) ? 'text' : 'decimal'}
                   value={personalBests[event.id] ?? ''}
                   onChange={(e) => {
                     const filtered = filterPerformanceInput(e.target.value, event);
@@ -423,7 +430,7 @@ export function AthleteForm({ athlete }: Props) {
                 </div>
                 <input
                   type="text"
-                  inputMode="decimal"
+                  inputMode={LONG_TRACK_IDS.has(event.id) ? 'text' : 'decimal'}
                   value={personalBests[event.id] ?? ''}
                   onChange={(e) => {
                     const filtered = filterPerformanceInput(e.target.value, event);

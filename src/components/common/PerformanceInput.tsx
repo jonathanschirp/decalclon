@@ -88,9 +88,9 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
       <div style={{ display: 'flex', gap: 6 }}>
         <input
           type="text"
-          inputMode="decimal"
+          inputMode={LONG_TRACK_IDS.has(event.id) ? 'text' : 'decimal'}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value.replace(/,/g, '.'))}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
             if (e.key === 'Escape') onCancel?.();

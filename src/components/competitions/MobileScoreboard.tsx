@@ -310,13 +310,11 @@ export function MobileScoreboard({
                           background: isPB ? 'var(--pb-soft)' : '#fff',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
                           <span className="micro" style={{ color: isCurrent ? 'var(--live)' : 'var(--muted-2)' }}>
                             {String(event.order).padStart(2, '0')} · {EVENT_CODES[event.id] || event.name}
                           </span>
-                          {isCurrent && <span className="micro" style={{ color: 'var(--live)', fontWeight: 700 }}>LIVE</span>}
-                          {isWin && <span className="micro" style={{ color: 'var(--gold)', fontWeight: 700 }}>#1</span>}
-                          {isPB && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700 }}>PB↑</span>}
+                          {isCurrent && <span className="micro" style={{ color: 'var(--live)', fontWeight: 700, marginLeft: 6 }}>LIVE</span>}
                         </div>
                         <div className="num" style={{
                           fontSize: 14, fontWeight: 700, marginTop: 3,
@@ -331,6 +329,8 @@ export function MobileScoreboard({
                         }}>
                           {es?.points ?? 0} pts
                           {!es?.isActual && es?.performance != null && <span style={{ marginLeft: 4 }}>· PB</span>}
+                          {isWin && <span className="micro" style={{ color: 'var(--gold)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>#1</span>}
+                          {isPB && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>PB↑</span>}
                         </div>
                         {es?.isActual && (
                           <button
