@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { Logo } from '../components/common/Logo';
 
 export function LoginPage() {
   const { signIn, error } = useAuth();
@@ -26,8 +27,8 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center mb-8">
-          <img src="/decalclon-logo.svg" alt="Decalclon" style={{ height: 40 }} />
+        <div className="flex items-center justify-center mb-8" style={{ color: 'var(--ink)' }}>
+          <Logo height={44} />
         </div>
         <form
           onSubmit={handleSubmit}

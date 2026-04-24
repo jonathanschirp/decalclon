@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { Logo } from '../common/Logo';
 
 const navItems = [
   { path: '/', label: 'Competitions', num: '01' },
@@ -27,8 +28,9 @@ export function Navbar() {
               to="/"
               onClick={() => setMenuOpen(false)}
               className="flex items-center"
+              style={{ color: 'var(--ink)' }}
             >
-              <img src="/decalclon-logo.svg" alt="Decalclon" style={{ height: 28 }} />
+              <Logo height={34} />
             </Link>
 
             {/* Desktop nav */}
