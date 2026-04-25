@@ -4,6 +4,7 @@ import { getEventsForType } from '../../lib/events';
 import { formatPerformance } from '../../lib/scoring';
 import { calculatePredictedScores, getCurrentEvent, isPersonalBest, DNS_MARK } from '../../lib/predictions';
 import { PerformanceInput } from '../common/PerformanceInput';
+import { DisciplineEntryView } from './DisciplineEntryView';
 
 type SortMode = 'predicted' | 'current';
 
@@ -59,6 +60,7 @@ export function MobileScoreboard({
   const [sortMode, setSortMode] = useState<SortMode>('predicted');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ athleteId: string; eventId: string } | null>(null);
+  const [disciplineViewIndex, setDisciplineViewIndex] = useState<number | null>(null);
 
   const scores = useMemo(() => sortAndRank(baseScores, sortMode), [baseScores, sortMode]);
   const athleteMap = useMemo(() => new Map(athletes.map((a) => [a.id, a])), [athletes]);
@@ -84,11 +86,13 @@ export function MobileScoreboard({
 
   return (
     <div className="flex flex-col gap-0">
-      {/* Current event strip — dark bar */}
+      {/* Current event strip — dark bar, tap to open discipline entry */}
       {currentEvent && (
-        <div
-          className="flex items-center justify-between"
-          style={{ padding: '10px 14px', background: 'var(--ink)', color: '#fff' }}
+        <button
+          type="button"
+          className="w-full text-left flex items-center justify-between"
+          onClick={() => setDisciplineViewIndex(currentEvent.order - 1)}
+          style={{ padding: '10px 14px', background: 'var(--ink)', color: '#fff', border: 'none', cursor: 'pointer' }}
         >
           <div>
             <div className="micro" style={{ color: 'rgba(255,255,255,.5)', letterSpacing: '.12em' }}>
@@ -98,8 +102,13 @@ export function MobileScoreboard({
               {currentEvent.name}
             </div>
           </div>
-          <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--live)' }} />
-        </div>
+          <div className="flex items-center gap-2">
+            <div className="live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--live)' }} />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: 'rgba(255,255,255,.5)' }}>
+              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+        </button>
       )}
 
       {/* Sort toggle */}
@@ -352,6 +361,19 @@ export function MobileScoreboard({
           );
         })}
       </div>
+
+      {/* Discipline entry overlay */}
+      {disciplineViewIndex !== null && (
+        <DisciplineEntryView
+          competition={competition}
+          athletes={athletes}
+          scores={scores}
+          initialEventIndex={disciplineViewIndex}
+          onResultEntered={onResultEntered}
+          onResultReset={onResultReset}
+          onClose={() => setDisciplineViewIndex(null)}
+        />
+      )}
     </div>
   );
 }
