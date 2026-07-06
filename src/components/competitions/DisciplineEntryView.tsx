@@ -245,7 +245,7 @@ export function DisciplineEntryView({
                   {/* Result display */}
                   <div className="flex items-center gap-2">
                     {isDns ? (
-                      <span className="num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--live)' }}>DNS</span>
+                      <span className="num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--live)' }}>NM</span>
                     ) : hasResult ? (
                       <div style={{ textAlign: 'right' }}>
                         <div className="num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>

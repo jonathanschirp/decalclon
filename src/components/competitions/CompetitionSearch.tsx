@@ -345,9 +345,11 @@ export function CompetitionSearch({ query, disabled, onImport }: Props) {
           </div>
           {competitions.slice(0, 15).map((comp, i) => {
             const dateParts = comp.startDate.split('-');
-            const shortDate = dateParts.length === 3
+            const hasFullDate = dateParts.length === 3;
+            const shortDate = hasFullDate
               ? `${dateParts[2]}/${dateParts[1]}`
               : comp.startDate;
+            const year = hasFullDate ? dateParts[0] : '';
             return (
               <button
                 key={comp.id}
@@ -367,11 +369,21 @@ export function CompetitionSearch({ query, disabled, onImport }: Props) {
                   opacity: loading ? 0.5 : 1,
                 }}
               >
-                <div className="num tnum" style={{
-                  fontWeight: 800, fontSize: 16,
-                  color: 'var(--ink)',
-                }}>
-                  {shortDate}
+                <div>
+                  <div className="num tnum" style={{
+                    fontWeight: 800, fontSize: 16,
+                    color: 'var(--ink)', lineHeight: 1,
+                  }}>
+                    {shortDate}
+                  </div>
+                  {year && (
+                    <div className="num tnum" style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: 'var(--muted)', marginTop: 2,
+                    }}>
+                      {year}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{comp.name}</div>

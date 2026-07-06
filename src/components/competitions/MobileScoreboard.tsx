@@ -64,7 +64,14 @@ export function MobileScoreboard({
 
   const scores = useMemo(() => sortAndRank(baseScores, sortMode), [baseScores, sortMode]);
   const athleteMap = useMemo(() => new Map(athletes.map((a) => [a.id, a])), [athletes]);
-  const maxPredicted = useMemo(() => Math.max(...scores.map((s) => s.predictedFinalScore)), [scores]);
+
+  // Primary score follows the active sort; the other is shown below.
+  const primaryScore = (s: AthleteScore) =>
+    sortMode === 'predicted' ? s.predictedFinalScore : s.totalActualPoints;
+  const secondaryScore = (s: AthleteScore) =>
+    sortMode === 'predicted' ? s.totalActualPoints : s.predictedFinalScore;
+  const secondaryLabel = sortMode === 'predicted' ? 'now' : 'proj';
+  const maxScore = useMemo(() => Math.max(...scores.map(primaryScore)), [scores, sortMode]);
 
   const completedCount = (score: AthleteScore) =>
     events.filter((e) => score.eventScores[e.id]?.isActual).length;
@@ -136,7 +143,7 @@ export function MobileScoreboard({
           const expanded = expandedId === score.athleteId;
           const done = completedCount(score);
           const stripe = medalStripeColor(score.position);
-          const gap = score.position === 1 ? 0 : maxPredicted - score.predictedFinalScore;
+          const gap = score.position === 1 ? 0 : maxScore - primaryScore(score);
 
           return (
             <div
@@ -207,13 +214,16 @@ export function MobileScoreboard({
                     <span className="num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--muted-2)' }}>—</span>
                   ) : (
                     <>
-                      <div className="num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>
-                        {score.predictedFinalScore}
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: 5 }}>
+                        <span className="tnum" style={{ fontSize: 10, color: score.position === 1 ? 'var(--pb)' : 'var(--muted)', fontWeight: 600 }}>
+                          {score.position === 1 ? 'LEADER' : `−${gap}`}
+                        </span>
+                        <span className="num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>
+                          {primaryScore(score)}
+                        </span>
                       </div>
-                      <div className="tnum" style={{ fontSize: 10, marginTop: 3, color: score.position === 1 ? 'var(--pb)' : 'var(--muted)', fontWeight: 600 }}>
-                        {score.position === 1 ? 'LEADER' : `−${gap}`}
-                        {' · '}
-                        <span style={{ color: 'var(--muted-2)' }}>{score.totalActualPoints} now</span>
+                      <div className="tnum" style={{ fontSize: 10, marginTop: 3, color: 'var(--muted-2)', fontWeight: 600 }}>
+                        {secondaryScore(score)} {secondaryLabel}
                       </div>
                     </>
                   )}
@@ -294,7 +304,7 @@ export function MobileScoreboard({
                           <div className="micro" style={{ color: 'var(--muted-2)' }}>
                             {String(event.order).padStart(2, '0')}
                           </div>
-                          <div className="num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--live)', marginTop: 3 }}>DNS</div>
+                          <div className="num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--live)', marginTop: 3 }}>NM</div>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}

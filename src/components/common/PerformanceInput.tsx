@@ -122,12 +122,13 @@ export function PerformanceInput({ event, value, onChange, onDNS, onCancel, auto
           <button
             type="button"
             onClick={onDNS}
+            title="No valid mark (fall, foul, DNF) — scores 0 for this event"
             style={{
               ...btnBase,
               background: 'var(--live-soft)', color: 'var(--live)',
             }}
           >
-            DNS
+            NM
           </button>
         )}
         {onCancel && (

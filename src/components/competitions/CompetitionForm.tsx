@@ -14,7 +14,7 @@ interface Props {
 
 export function CompetitionForm({ competition }: Props) {
   const navigate = useNavigate();
-  const { create, update } = useCompetitions();
+  const { create, update, remove } = useCompetitions();
   const { athletes, fetch: fetchAthletes } = useAthletes();
   const [name, setName] = useState(competition?.name ?? '');
   const [date, setDate] = useState(competition?.date ?? '');
@@ -27,6 +27,8 @@ export function CompetitionForm({ competition }: Props) {
   const [importedResults, setImportedResults] = useState<CompetitionResults | null>(null);
   const [imported, setImported] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Athlete search / filter
   const [athleteSearch, setAthleteSearch] = useState('');
@@ -155,6 +157,17 @@ export function CompetitionForm({ competition }: Props) {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!competition) return;
+    setDeleting(true);
+    try {
+      await remove(competition.id);
+      navigate('/competitions');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -488,6 +501,68 @@ export function CompetitionForm({ competition }: Props) {
           </>
         )}
       </div>
+
+      {/* Danger zone — delete (edit only) */}
+      {competition && (
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: 12,
+          padding: '14px 20px',
+          background: 'var(--surface)', border: '1px solid #E7C3C3', borderRadius: 12,
+        }}>
+          {confirmDelete ? (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>
+                Delete <span style={{ color: '#C0392B' }}>{competition.name || 'this competition'}</span>? This cannot be undone.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  style={{
+                    padding: '8px 14px', fontSize: 12, fontWeight: 600,
+                    border: '1px solid var(--line)', background: '#fff',
+                    color: 'var(--ink)', borderRadius: 8, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{
+                    padding: '8px 14px', fontSize: 12, fontWeight: 600,
+                    border: '1px solid #C0392B', background: '#C0392B',
+                    color: '#fff', borderRadius: 8, cursor: 'pointer',
+                    opacity: deleting ? 0.5 : 1,
+                  }}
+                >
+                  {deleting ? 'Deleting...' : 'Delete competition'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                Permanently remove this competition and its results.
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                style={{
+                  padding: '8px 14px', fontSize: 12, fontWeight: 600,
+                  border: '1px solid #E7C3C3', background: '#fff',
+                  color: '#C0392B', borderRadius: 8, cursor: 'pointer',
+                }}
+              >
+                Delete competition
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>

@@ -303,12 +303,12 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                       );
                     }
 
-                    // DNS cell
+                    // No-mark cell
                     if (es?.isDNS) {
                       return (
                         <td key={event.id} className="group relative px-2.5 py-2 text-center" style={{ background: bgColor, borderBottom: cellBd, borderLeft: cellBorderLeft }}>
                           <div className="cursor-pointer" onClick={() => setEditingCell({ athleteId: score.athleteId, eventId: event.id })}>
-                            <span className="text-xs font-bold" style={{ color: 'var(--live)' }}>DNS</span>
+                            <span className="text-xs font-bold" style={{ color: 'var(--live)' }}>NM</span>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); onResultReset(score.athleteId, event.id); }}
@@ -463,7 +463,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3.5 h-2.5 inline-block rounded-sm" style={{ background: 'var(--live-soft)', border: '1px solid #F0C9C3' }} />
-          DNS / DNF
+          No mark (NM)
         </span>
       </div>
     </div>

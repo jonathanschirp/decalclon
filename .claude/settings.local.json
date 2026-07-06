@@ -86,7 +86,10 @@
       "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarEvents\\(query: \\\\\"World Athletics Championships\\\\\", regionType: \\\\\"world\\\\\", hideCompetitionsWithNoResults: false\\) { results { id name venue startDate endDate } } }\"}')",
       "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) for r in data['data']['getCalendarEvents']['results'][:10]: print\\(f\\\\\"{r['id']}: {r['name']} \\({r['startDate']}\\)\\\\\"\\)\")",
       "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarEvents\\(query: \\\\\"World Athletics Championships Tokyo\\\\\", regionType: \\\\\"world\\\\\", hideCompetitionsWithNoResults: false\\) { results { id name venue startDate endDate } } }\"}')",
-      "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarCompetitionResults\\(competitionId: 7138987, day: null, eventId: null\\) { options { events { id name gender combined } } } }\"}')"
+      "Bash(curl -s -X POST https://worldathletics.stellate.sh/ -H 'Content-Type: application/json' -H 'x-graphql-client-name: worldathletics' -d '{\"query\":\"{ getCalendarCompetitionResults\\(competitionId: 7138987, day: null, eventId: null\\) { options { events { id name gender combined } } } }\"}')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

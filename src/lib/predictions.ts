@@ -2,12 +2,40 @@ import type { Athlete, Competition, AthleteScore, EventDefinition } from '../typ
 import { getEventsForType } from './events';
 import { calculatePoints } from './scoring';
 
-/** Sentinel value stored in results meaning DNS / DNF / DQ — no mark recorded. */
+/** Sentinel value stored in results meaning no valid mark (fall, foul, DNF/DNS) — 0 points. */
 export const DNS_MARK = 0;
 
-/** Check whether a result value represents a DNS/DNF/no-mark. */
+/** Check whether a result value represents a no-mark (0-point) result. */
 export function isDNS(value: number | null | undefined): boolean {
   return value === DNS_MARK;
+}
+
+interface MarkBounds {
+  /** Highest event index with a real (non-no-mark) result, or -1. */
+  lastRealIndex: number;
+  /** Highest event index with any result (real or no-mark), or -1. */
+  lastMarkIndex: number;
+  /**
+   * Whether the athlete has dropped out: their most recent entry is a no-mark
+   * with no real result after it. Entering a later result reactivates them.
+   */
+  withdrawn: boolean;
+}
+
+/** Derive an athlete's mark bounds and withdrawal state from their results. */
+function getMarkBounds(
+  athleteResults: Record<string, number | null>,
+  events: EventDefinition[],
+): MarkBounds {
+  let lastRealIndex = -1;
+  let lastMarkIndex = -1;
+  for (let i = 0; i < events.length; i++) {
+    const v = athleteResults[events[i].id];
+    if (v == null) continue;
+    lastMarkIndex = i;
+    if (!isDNS(v)) lastRealIndex = i;
+  }
+  return { lastRealIndex, lastMarkIndex, withdrawn: lastMarkIndex > lastRealIndex };
 }
 
 export function calculatePredictedScores(
@@ -22,20 +50,8 @@ export function calculatePredictedScores(
       const athlete = athleteMap.get(athleteId);
       if (!athlete) return null;
 
-      // First pass: check if athlete has any DNS mark → withdrawn
       const athleteResults = competition.results?.[athleteId] ?? {};
-      const withdrawn = Object.values(athleteResults).some((v) => isDNS(v));
-
-      // Find the first DNS event index so we know where they dropped out
-      let dnsEventIndex = events.length;
-      if (withdrawn) {
-        for (let i = 0; i < events.length; i++) {
-          if (isDNS(athleteResults[events[i].id])) {
-            dnsEventIndex = i;
-            break;
-          }
-        }
-      }
+      const { lastRealIndex, withdrawn } = getMarkBounds(athleteResults, events);
 
       const eventScores: AthleteScore['eventScores'] = {};
       let totalActualPoints = 0;
@@ -51,14 +67,14 @@ export function calculatePredictedScores(
         let points = 0;
 
         if (dns) {
-          // Explicit DNS — 0 points, no performance
+          // No valid mark — 0 points, no performance
           performance = null;
         } else if (isActual) {
           // Real result
           performance = actualResult;
           points = calculatePoints(event, actualResult);
-        } else if (withdrawn && i >= dnsEventIndex) {
-          // Past withdrawal point — no PB fill, 0 points
+        } else if (withdrawn && i > lastRealIndex) {
+          // Athlete abandoned — no PB fill past their last real mark
           performance = null;
         } else {
           // No result yet — fill with PB for prediction
@@ -108,10 +124,23 @@ export function getCurrentEvent(
 ): EventDefinition | null {
   const events = getEventsForType(competition.type);
 
-  for (const event of events) {
-    const allCompleted = competition.athleteIds.every(
-      (id) => competition.results?.[id]?.[event.id] != null,
-    );
+  // How far each athlete is still expected to compete. A withdrawn athlete owes
+  // no result past their drop-out event, so their missing later entries must not
+  // hold back the current-event detection.
+  const dropIndex = new Map<string, number>();
+  for (const id of competition.athleteIds) {
+    const results = competition.results?.[id] ?? {};
+    const { withdrawn, lastMarkIndex } = getMarkBounds(results, events);
+    dropIndex.set(id, withdrawn ? lastMarkIndex : events.length - 1);
+  }
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const allCompleted = competition.athleteIds.every((id) => {
+      if (competition.results?.[id]?.[event.id] != null) return true;
+      // Missing result is only acceptable if the athlete dropped out earlier.
+      return i > (dropIndex.get(id) ?? events.length - 1);
+    });
     if (!allCompleted) return event;
   }
 
