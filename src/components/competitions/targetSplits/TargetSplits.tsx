@@ -10,7 +10,7 @@ import {
   type Summary,
   type TargetModel,
 } from '../../../lib/targetSplits';
-import { EventRowDesktop, EventRowMobile, Legend } from './parts';
+import { EventRowDesktop, EventRowMobile } from './parts';
 
 const cardStyle = { background: '#fff', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' } as const;
 
@@ -388,7 +388,6 @@ function CalculatorDesktop({ model, calc }: { model: TargetModel; calc: Calc }) 
         ))}
       </div>
 
-      <Legend />
       <SummaryBar model={model} summary={summary} />
     </div>
   );
@@ -467,8 +466,6 @@ function CalculatorMobile({ model, calc }: { model: TargetModel; calc: Calc }) {
           />
         ))}
       </div>
-
-      <Legend />
     </div>
   );
 }

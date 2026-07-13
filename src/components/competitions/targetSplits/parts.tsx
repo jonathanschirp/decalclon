@@ -23,22 +23,22 @@ const help = (status: SplitStatus, base: string) =>
 
 // ---------- Difficulty pill (vs anchor) ----------
 export function DiffPill({ status, delta, base }: { status: SplitStatus; delta: number; base: string }) {
-  const map: Record<SplitStatus, { bg: string; fg: string; bd: string; label: string }> = {
-    comfortable: { bg: 'var(--pb-soft)', fg: 'var(--pb)', bd: '#C2E5D0', label: delta < 0 ? `${delta} vs ${base}` : `at ${base}` },
-    stretch: { bg: 'var(--amber-soft)', fg: 'var(--amber)', bd: '#EAD3A8', label: `+${delta} over ${base}` },
+  const color: Record<SplitStatus, { bg: string; fg: string; bd: string }> = {
+    comfortable: { bg: 'var(--pb-soft)', fg: 'var(--pb)', bd: '#C2E5D0' },
+    stretch: { bg: 'var(--amber-soft)', fg: 'var(--amber)', bd: '#EAD3A8' },
   };
-  const t = map[status];
+  const c = color[status];
+  const label = delta > 0 ? `+${delta} vs ${base}` : delta < 0 ? `${delta} vs ${base}` : `at ${base}`;
   return (
     <span
       title={help(status, base)}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
         padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-        background: t.bg, color: t.fg, border: `1px solid ${t.bd}`,
+        background: c.bg, color: c.fg, border: `1px solid ${c.bd}`,
       }}
     >
-      {status === 'comfortable' && <span style={{ fontWeight: 800 }}>✓</span>}
-      {t.label}
+      {label}
     </span>
   );
 }
@@ -184,18 +184,6 @@ export function EventRowMobile({ row, disabled, onChange, onLock, showLock }: Ro
       <div style={{ marginTop: 4 }}>
         <MeterSlider row={row} disabled={disabled} onChange={onChange} />
       </div>
-    </div>
-  );
-}
-
-// ---------- Legend explaining the scale ----------
-export function Legend() {
-  const chip = (bg: string, bd: string): CSSProperties => ({ width: 12, height: 12, borderRadius: 3, background: bg, border: `1px solid ${bd}`, display: 'inline-block', flexShrink: 0 });
-  return (
-    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', fontSize: 11.5, color: 'var(--muted)' }}>
-      <span>Each slider spans ±20% of the anchor in points (PB, or an average when none):</span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={chip('var(--pb-soft)', '#C2E5D0')} /> at / below anchor — comfortable</span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={chip('var(--amber-soft)', '#EAD3A8')} /> above — a stretch (up to +20%)</span>
     </div>
   );
 }
