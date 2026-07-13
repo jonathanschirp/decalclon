@@ -1,22 +1,25 @@
 import type { EventDefinition } from '../types';
 
+// Events whose scoring B values are in centimeters while the app stores marks
+// in meters (High Jump, Pole Vault, Long Jump). These need meter↔cm conversion
+// on the way into and out of the scoring formula.
+const CM_EVENTS = [
+  'dec_high_jump', 'dec_pole_vault', 'dec_long_jump',
+  'hep_high_jump', 'hep_long_jump',
+];
+
 /**
  * Convert a performance value to the unit expected by the scoring formula.
- * - High Jump and Pole Vault: formula expects centimeters, input is meters
- * - Long Jump: formula expects centimeters, input is meters
+ * - High Jump, Pole Vault, Long Jump: formula expects centimeters, input is meters
  * - All others: used as-is
  */
 function toFormulaUnit(event: EventDefinition, performance: number): number {
-  // High Jump and Pole Vault B values are in centimeters (75, 100)
-  // Long Jump B values are in centimeters (220, 210)
-  const cmEvents = [
-    'dec_high_jump', 'dec_pole_vault', 'dec_long_jump',
-    'hep_high_jump', 'hep_long_jump',
-  ];
-  if (cmEvents.includes(event.id)) {
-    return performance * 100;
-  }
-  return performance;
+  return CM_EVENTS.includes(event.id) ? performance * 100 : performance;
+}
+
+/** Inverse of toFormulaUnit: convert a formula-space value back to the stored mark. */
+function fromFormulaUnit(event: EventDefinition, formulaValue: number): number {
+  return CM_EVENTS.includes(event.id) ? formulaValue / 100 : formulaValue;
 }
 
 /**
@@ -42,6 +45,31 @@ export function calculatePoints(event: EventDefinition, performance: number): nu
   }
 
   return Math.floor(points);
+}
+
+/**
+ * Inverse of calculatePoints: the (continuous, unrounded) mark that yields a
+ * given points total. Used by the Target Splits calculator to turn a required
+ * points figure back into a concrete time/distance/height.
+ *
+ * Track: P = B − (points / A)^(1/C)   (lower is better)
+ * Field: P = B + (points / A)^(1/C)   (higher is better)
+ *
+ * For points ≤ 0 there is no positive mark, so we return the zero-point
+ * baseline (just past B).
+ */
+export function pointsToMark(event: EventDefinition, points: number): number {
+  const { A, B, C } = event.scoringConstants;
+
+  if (points <= 0) {
+    // Baseline: the threshold mark worth ~0 points, nudged to the scoring side of B.
+    const baseline = event.type === 'track' ? B - 0.01 : B + 0.01;
+    return fromFormulaUnit(event, baseline);
+  }
+
+  const delta = Math.pow(points / A, 1 / C);
+  const P = event.type === 'track' ? B - delta : B + delta;
+  return fromFormulaUnit(event, P);
 }
 
 /**

@@ -4,6 +4,7 @@ import { useCompetitions } from '../hooks/useCompetition';
 import { useAthletes } from '../hooks/useAthletes';
 import { Scoreboard } from '../components/competitions/Scoreboard';
 import { MobileScoreboard } from '../components/competitions/MobileScoreboard';
+import { TargetSplits } from '../components/competitions/targetSplits/TargetSplits';
 import { CompetitionForm } from '../components/competitions/CompetitionForm';
 import { getCompetitionStatus } from '../lib/competitionStatus';
 
@@ -21,6 +22,7 @@ export function CompetitionDetailPage() {
   const { current, fetchOne, updateResult, resetResult, syncFromWA, syncing } = useCompetitions();
   const { athletes, fetch: fetchAthletes } = useAthletes();
   const [loaded, setLoaded] = useState(false);
+  const [targetAthleteId, setTargetAthleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isNew && id) {
@@ -56,6 +58,9 @@ export function CompetitionDetailPage() {
   const enrolledAthletes = athletes.filter((a) => current.athleteIds.includes(a.id));
   const derivedStatus = getCompetitionStatus(current.date);
   const status = statusConfig[derivedStatus];
+  const targetAthlete = targetAthleteId
+    ? enrolledAthletes.find((a) => a.id === targetAthleteId) ?? null
+    : null;
 
   return (
     <div className="space-y-4">
@@ -119,6 +124,15 @@ export function CompetitionDetailPage() {
             Edit competition to add athletes.
           </Link>
         </div>
+      ) : targetAthlete ? (
+        <TargetSplits
+          key={targetAthlete.id}
+          competition={current}
+          athlete={targetAthlete}
+          athletes={enrolledAthletes}
+          onBack={() => setTargetAthleteId(null)}
+          onSwitchAthlete={setTargetAthleteId}
+        />
       ) : (
         <>
           <div className="hidden md:block">
@@ -131,6 +145,7 @@ export function CompetitionDetailPage() {
               onResultReset={(athleteId, eventId) => {
                 resetResult(current.id, athleteId, eventId);
               }}
+              onSetTarget={setTargetAthleteId}
             />
           </div>
           <div className="md:hidden">
@@ -143,6 +158,7 @@ export function CompetitionDetailPage() {
               onResultReset={(athleteId, eventId) => {
                 resetResult(current.id, athleteId, eventId);
               }}
+              onSetTarget={setTargetAthleteId}
             />
           </div>
         </>

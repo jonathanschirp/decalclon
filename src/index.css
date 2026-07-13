@@ -26,6 +26,8 @@
   --bronze-soft: #F1E3D5;
   --brand: #2B4CFF;
   --brand-soft: #E6EAFF;
+  --amber: #B26B04;
+  --amber-soft: #FBEEDA;
 }
 
 html, body, #root { height: 100%; }
@@ -92,3 +94,44 @@ body {
 .diag-stripe {
   background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgba(0,0,0,.025) 7px 8px);
 }
+
+/* Target Splits meter-slider: a range input whose track shows the PB→ceiling
+   zone gradient (passed in via the --track-bg custom property). */
+.meter-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 16px;
+  cursor: pointer;
+}
+.meter-range:disabled { cursor: not-allowed; }
+.meter-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track-bg, var(--bg-2));
+}
+.meter-range::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track-bg, var(--bg-2));
+}
+.meter-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--thumb, var(--ink));
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--thumb, var(--ink));
+}
+.meter-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--thumb, var(--ink));
+  border: 2px solid #fff;
+}
+.meter-range:disabled::-webkit-slider-thumb { background: var(--muted-2); box-shadow: 0 0 0 1px var(--muted-2); }
+.meter-range:disabled::-moz-range-thumb { background: var(--muted-2); }

@@ -12,6 +12,7 @@ interface Props {
   athletes: Athlete[];
   onResultEntered: (athleteId: string, eventId: string, value: number) => void;
   onResultReset: (athleteId: string, eventId: string) => void;
+  onSetTarget?: (athleteId: string) => void;
 }
 
 /** Short event codes for compact display */
@@ -101,7 +102,7 @@ function EventRail({ events, currentEvent }: { events: EventDefinition[]; curren
   );
 }
 
-export function Scoreboard({ competition, athletes, onResultEntered, onResultReset }: Props) {
+export function Scoreboard({ competition, athletes, onResultEntered, onResultReset, onSetTarget }: Props) {
   const events = getEventsForType(competition.type);
   const currentEvent = getCurrentEvent(competition);
   const baseScores = useMemo(
@@ -254,7 +255,7 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                   </td>
 
                   {/* Athlete name */}
-                  <td className="sticky left-[44px] z-[2] px-2.5 py-1.5 bg-white" style={{ borderBottom: cellBd, borderRight: '1px solid var(--line)' }}>
+                  <td className="group relative sticky left-[44px] z-[2] px-2.5 py-1.5 bg-white" style={{ borderBottom: cellBd, borderRight: '1px solid var(--line)' }}>
                     <div className="flex items-center gap-2.5">
                       {athlete?.nationality && (
                         <span className="mono inline-flex items-center justify-center shrink-0" style={{ width: 26, height: 16, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', background: '#fff', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 3 }}>
@@ -267,6 +268,16 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                         </div>
                       </div>
                     </div>
+                    {onSetTarget && !score.withdrawn && (
+                      <button
+                        onClick={() => onSetTarget(score.athleteId)}
+                        className="absolute top-1/2 -translate-y-1/2 right-2 hidden group-hover:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md"
+                        style={{ border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)', boxShadow: '0 1px 4px rgba(14,16,20,.12)' }}
+                        title="Target calculator — what this athlete needs in remaining events"
+                      >
+                        ◎ Target
+                      </button>
+                    )}
                   </td>
 
                   {/* Event cells */}

@@ -13,6 +13,7 @@ interface Props {
   athletes: Athlete[];
   onResultEntered: (athleteId: string, eventId: string, value: number) => void;
   onResultReset: (athleteId: string, eventId: string) => void;
+  onSetTarget?: (athleteId: string) => void;
 }
 
 const EVENT_CODES: Record<string, string> = {
@@ -49,6 +50,7 @@ export function MobileScoreboard({
   athletes,
   onResultEntered,
   onResultReset,
+  onSetTarget,
 }: Props) {
   const events = getEventsForType(competition.type);
   const currentEvent = getCurrentEvent(competition);
@@ -365,6 +367,16 @@ export function MobileScoreboard({
                       </div>
                     );
                   })}
+                  {onSetTarget && !score.withdrawn && (
+                    <button
+                      type="button"
+                      onClick={() => onSetTarget(score.athleteId)}
+                      className="col-span-2 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-md"
+                      style={{ border: '1px solid var(--line)', background: '#fff', color: 'var(--ink-2)' }}
+                    >
+                      ◎ Open target calculator
+                    </button>
+                  )}
                 </div>
               )}
             </div>
