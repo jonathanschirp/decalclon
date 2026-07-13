@@ -63,6 +63,7 @@ export function AthleteForm({ athlete }: Props) {
   );
   const [combinedPB, setCombinedPB] = useState(athlete?.combinedPB != null ? String(athlete.combinedPB) : '');
   const [waAthleteId, setWaAthleteId] = useState<string | undefined>(athlete?.waAthleteId);
+  const [bestCombined, setBestCombined] = useState(athlete?.bestCombined);
   const [imported, setImported] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -85,12 +86,15 @@ export function AthleteForm({ athlete }: Props) {
       if (parsed != null && parsed > 0) pbs[eventId] = parsed;
     }
     const parsedCombinedPB = combinedPB.trim() ? parseInt(combinedPB, 10) : undefined;
+    const common = { name, gender, nationality, personalBests: pbs, combinedPB: parsedCombinedPB, waAthleteId };
+    // Only write bestCombined when present (Firestore rejects undefined values).
+    const data = bestCombined ? { ...common, bestCombined } : common;
     try {
       if (athlete) {
-        await update(athlete.id, { name, gender, nationality, personalBests: pbs, combinedPB: parsedCombinedPB, waAthleteId });
+        await update(athlete.id, data);
         navigate(`/athletes/${athlete.id}`);
       } else {
-        const id = await create({ name, gender, nationality, personalBests: pbs, combinedPB: parsedCombinedPB, waAthleteId });
+        const id = await create(data);
         navigate(`/athletes/${id}`);
       }
     } finally {
@@ -196,6 +200,7 @@ export function AthleteForm({ athlete }: Props) {
               setNationality(data.nationality);
               setGender(data.gender);
               setWaAthleteId(data.waAthleteId);
+              setBestCombined(data.bestCombined);
               setImported(true);
               if (data.combinedPB != null) setCombinedPB(String(data.combinedPB));
               const evts = getEventsForType(data.gender === 'male' ? 'decathlon' : 'heptathlon');

@@ -1,4 +1,4 @@
-import type { Gender, CompetitionType, CompetitionResults } from '../types';
+import type { BestCombined, Gender, CompetitionType, CompetitionResults } from '../types';
 import { parseTimeInput } from './scoring';
 
 const GRAPHQL_ENDPOINT = 'https://worldathletics.stellate.sh/';
@@ -315,6 +315,124 @@ export function mapEventResults(
  */
 export function competitionTypeFromEvent(event: WACombinedEvent): CompetitionType {
   return event.name.toLowerCase().includes('heptathlon') ? 'heptathlon' : 'decathlon';
+}
+
+// --- Best combined event (all-time PB decathlon/heptathlon breakdown) ---
+
+export interface WATop10Result {
+  discipline: string;
+  /** Total points for the performance, as a string, e.g. "8961". */
+  result: string;
+  date: string;
+  competition: string;
+  competitionId: string;
+  eventId: string;
+}
+
+export interface BestCombinedRef {
+  total: number;
+  date: string;
+  competition: string;
+  competitionId: string;
+  eventId: string;
+}
+
+/** Fetch an athlete's all-time top-10 performances across their disciplines. */
+export async function fetchAllTimeTop10(waAthleteId: string): Promise<WATop10Result[]> {
+  const data = await graphql<{
+    getSingleCompetitorAllTimePersonalTop10: { results: WATop10Result[] } | null;
+  }>(
+    `{ getSingleCompetitorAllTimePersonalTop10(id: ${waAthleteId}) { results { discipline result date competition competitionId eventId } } }`,
+  );
+  return data.getSingleCompetitorAllTimePersonalTop10?.results ?? [];
+}
+
+/**
+ * Pick the best (highest total) result for a given combined-event discipline
+ * ("Decathlon" or "Heptathlon") from an all-time top-10 list.
+ */
+export function selectBestCombined(
+  results: WATop10Result[],
+  discipline: string,
+): BestCombinedRef | null {
+  let best: BestCombinedRef | null = null;
+  for (const r of results) {
+    if (r.discipline !== discipline) continue;
+    const total = parseInt(r.result, 10);
+    if (!Number.isFinite(total) || total <= 0) continue;
+    if (!best || total > best.total) {
+      best = { total, date: r.date, competition: r.competition, competitionId: r.competitionId, eventId: r.eventId };
+    }
+  }
+  return best;
+}
+
+/**
+ * Map a single competitor's combined-event detail marks into our event-ID keyed
+ * marks + points (the single-competitor analogue of {@link mapEventResults}).
+ */
+export function mapCombinedDetails(
+  details: { event: string; mark: string; points: number }[],
+  type: CompetitionType,
+): { marks: Record<string, number>; points: Record<string, number> } {
+  const prefix = type === 'decathlon' ? 'dec' : 'hep';
+  const marks: Record<string, number> = {};
+  const points: Record<string, number> = {};
+  for (const d of details) {
+    const eventId = RESULT_DISCIPLINE_TO_EVENT[d.event]?.[prefix];
+    if (!eventId) continue;
+    const parsed = parseTimeInput(d.mark) ?? parseFloat(d.mark);
+    if (parsed != null && parsed > 0) {
+      marks[eventId] = parsed;
+      points[eventId] = d.points;
+    }
+  }
+  return { marks, points };
+}
+
+/** Case/order-insensitive name key for matching WA competitor rows. */
+function nameKey(name: string): string {
+  return name.toUpperCase().split(/\s+/).filter(Boolean).sort().join(' ');
+}
+
+/**
+ * Find the athlete's row within a competition's results. Result rows key on
+ * `iaafId` (which differs from the profile aaAthleteId), so match by name, then
+ * fall back to the row whose detail points sum equals the known total.
+ */
+function matchCompetitor(
+  results: WACompetitorResult[],
+  athleteName: string,
+  total: number,
+): WACompetitorResult | null {
+  const key = nameKey(athleteName);
+  const byName = results.find((r) => nameKey(r.name) === key);
+  if (byName) return byName;
+  return results.find((r) => (r.details ?? []).reduce((s, d) => s + (d.points || 0), 0) === total) ?? null;
+}
+
+/**
+ * Fetch and assemble an athlete's best-ever decathlon/heptathlon breakdown:
+ * their all-time best total plus that meet's individual event marks and points.
+ * Returns null when the athlete has no such result on record.
+ */
+export async function fetchBestCombinedResult(
+  waAthleteId: string,
+  type: CompetitionType,
+  athleteName: string,
+): Promise<BestCombined | null> {
+  const discipline = type === 'decathlon' ? 'Decathlon' : 'Heptathlon';
+  const best = selectBestCombined(await fetchAllTimeTop10(waAthleteId), discipline);
+  if (!best) return null;
+
+  const results = await fetchEventResults(Number(best.competitionId), Number(best.eventId));
+  const row = matchCompetitor(results, athleteName, best.total);
+  if (!row) return null;
+
+  const { marks, points } = mapCombinedDetails(row.details, type);
+  if (Object.keys(marks).length === 0) return null;
+
+  return { total: best.total, date: best.date, competition: best.competition, marks, points };
 }
 
 /**

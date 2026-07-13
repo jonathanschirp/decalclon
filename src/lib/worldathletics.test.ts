@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { mapPersonalBests, extractCombinedPB, mapEventResults, type WAPersonalBest, type WACompetitorResult } from './worldathletics';
+import {
+  mapPersonalBests,
+  extractCombinedPB,
+  mapEventResults,
+  selectBestCombined,
+  mapCombinedDetails,
+  type WAPersonalBest,
+  type WACompetitorResult,
+  type WATop10Result,
+} from './worldathletics';
 
 // Kevin Mayer's PBs as returned by the World Athletics API
 const MAYER_PBS: WAPersonalBest[] = [
@@ -183,5 +192,57 @@ describe('mapEventResults', () => {
       hep_200m: 23.10,
       hep_800m: expect.closeTo(130.0),
     });
+  });
+});
+
+// Leo Neugebauer's all-time top decathlons (from the WA API)
+const LEO_TOP10: WATop10Result[] = [
+  { discipline: 'Decathlon', result: '8961', date: '06 JUN 2024', competition: 'NCAA Champs', competitionId: '7155003', eventId: '10229629' },
+  { discipline: 'Decathlon', result: '8836', date: '08 JUN 2023', competition: 'NCAA Champs', competitionId: '7155002', eventId: '10229629' },
+  { discipline: 'Decathlon', result: '8730', date: '31 MAY 2026', competition: 'Götzis', competitionId: '7232824', eventId: '10229629' },
+  { discipline: 'Long Jump', result: '805', date: '01 JAN 2024', competition: 'X', competitionId: '1', eventId: '2' },
+];
+
+describe('selectBestCombined', () => {
+  it('picks the highest-total decathlon and returns its competition + event ids', () => {
+    const best = selectBestCombined(LEO_TOP10, 'Decathlon');
+    expect(best).toEqual({
+      total: 8961,
+      date: '06 JUN 2024',
+      competition: 'NCAA Champs',
+      competitionId: '7155003',
+      eventId: '10229629',
+    });
+  });
+
+  it('returns null when the athlete has no result in that discipline', () => {
+    expect(selectBestCombined(LEO_TOP10, 'Heptathlon')).toBeNull();
+    expect(selectBestCombined([], 'Decathlon')).toBeNull();
+  });
+});
+
+describe('mapCombinedDetails', () => {
+  it('maps a competitor’s decathlon sub-marks to event-keyed marks and points', () => {
+    const { marks, points } = mapCombinedDetails(WARNER_RESULTS.details, 'decathlon');
+    expect(marks).toEqual({
+      dec_100m: 10.20, dec_long_jump: 7.80, dec_shot_put: 14.55, dec_high_jump: 2.03,
+      dec_400m: 47.46, dec_110m_hurdles: 13.45, dec_discus: 46.41, dec_pole_vault: 4.80,
+      dec_javelin: 57.53, dec_1500m: expect.closeTo(276.94),
+    });
+    expect(points.dec_100m).toBe(1047);
+    expect(points.dec_1500m).toBe(700);
+  });
+
+  it('maps heptathlon sub-marks and skips unmapped disciplines', () => {
+    const { marks, points } = mapCombinedDetails(
+      [
+        { event: '100mH', mark: '12.54', points: 1100 },
+        { event: 'High Jump', mark: '1.98', points: 1050 },
+        { event: 'Marathon', mark: '2:20:00', points: 0 }, // not a hep event
+      ],
+      'heptathlon',
+    );
+    expect(marks).toEqual({ hep_100m_hurdles: 12.54, hep_high_jump: 1.98 });
+    expect(points).toEqual({ hep_100m_hurdles: 1100, hep_high_jump: 1050 });
   });
 });

@@ -111,11 +111,16 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
   );
 
   const [sortMode, setSortMode] = useState<SortMode>('predicted');
+  const [compareBest, setCompareBest] = useState(false);
   const [editingCell, setEditingCell] = useState<{ athleteId: string; eventId: string } | null>(null);
 
   const scores = useMemo(() => sortAndRank(baseScores, sortMode), [baseScores, sortMode]);
 
   const athleteMap = useMemo(() => new Map(athletes.map((a) => [a.id, a])), [athletes]);
+
+  // At least one athlete has a best-decathlon breakdown to compare against.
+  const anyBest = useMemo(() => athletes.some((a) => a.bestCombined), [athletes]);
+  const comparing = compareBest && anyBest;
 
   const eventRanks = useMemo(
     () => new Map(events.map((e) => [e.id, eventRank(scores, e.id)])),
@@ -164,7 +169,22 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
             </button>
           </div>
         </div>
-        <span className="text-[11px] hidden sm:block" style={{ color: 'var(--muted)' }}>Click any cell to enter result</span>
+        {anyBest ? (
+          <button
+            onClick={() => setCompareBest((v) => !v)}
+            className="py-1.5 px-3 text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+            style={{
+              border: `1px solid ${comparing ? 'var(--ink)' : 'var(--line)'}`,
+              background: comparing ? 'var(--ink)' : '#fff',
+              color: comparing ? '#fff' : 'var(--muted)',
+            }}
+            title="Show each mark's points gap vs the athlete's best-ever decathlon"
+          >
+            {comparing ? '✓ ' : ''}Compare vs best decathlon
+          </button>
+        ) : (
+          <span className="text-[11px] hidden sm:block" style={{ color: 'var(--muted)' }}>Click any cell to enter result</span>
+        )}
       </div>
 
       {/* The table */}
@@ -242,6 +262,17 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
               const gap = sortMode === 'predicted'
                 ? maxPred - score.predictedFinalScore
                 : maxCurrent - score.totalActualPoints;
+
+              // Comparison totals vs the athlete's best-ever decathlon.
+              const best = comparing ? athlete?.bestCombined : undefined;
+              // Pace: current banked vs best-decathlon points over the same contested events.
+              const bestPace = best
+                ? events.reduce((s, e) => (score.eventScores[e.id]?.isActual && best.points[e.id] != null ? s + best.points[e.id] : s), 0)
+                : 0;
+              const paceDelta = best ? score.totalActualPoints - bestPace : null;
+              const finalDelta = best ? score.predictedFinalScore - best.total : null;
+              const deltaColor = (d: number) => (d > 0 ? 'var(--pb)' : d < 0 ? 'var(--live)' : 'var(--muted)');
+              const signed = (d: number) => (d > 0 ? `+${d}` : `${d}`);
 
               return (
                 <tr key={score.athleteId} style={{ height: 54, opacity: score.withdrawn ? 0.55 : 1 }}>
@@ -333,6 +364,15 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                       );
                     }
 
+                    // Comparison vs the athlete's best-ever decathlon for this event.
+                    const bestPts = athlete?.bestCombined?.points[event.id];
+                    const bestMark = athlete?.bestCombined?.marks[event.id];
+                    const cmp = comparing && es?.isActual && bestPts != null && bestMark != null
+                      ? { delta: es.points - bestPts, bestMark, bestPts }
+                      : null;
+                    // Comparing this athlete but no best-decathlon datum for this event.
+                    const cmpNoData = comparing && !!es?.isActual && !cmp;
+
                     return (
                       <td
                         key={event.id}
@@ -344,9 +384,21 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                             <div className="num" style={{ fontSize: es.isActual ? 15 : 14, fontWeight: es.isActual ? 700 : 400, lineHeight: 1.1, color: isPB ? 'var(--pb)' : es.isActual ? 'var(--ink)' : 'var(--muted)', fontStyle: es.isActual ? 'normal' : 'italic' }}>
                               {formatPerformance(event, es.performance)}
                             </div>
-                            <div className="tnum mt-0.5" style={{ fontSize: 11, color: es.isActual ? 'var(--muted)' : 'var(--muted-2)' }}>
-                              {es.points} pts
-                            </div>
+                            {cmp ? (
+                              <div
+                                className="tnum mt-0.5"
+                                style={{ fontSize: 11, fontWeight: 700, color: cmp.delta > 0 ? 'var(--pb)' : cmp.delta < 0 ? 'var(--live)' : 'var(--muted)' }}
+                                title={`Best decathlon: ${formatPerformance(event, cmp.bestMark)} · ${cmp.bestPts} pts`}
+                              >
+                                {cmp.delta > 0 ? `+${cmp.delta}` : cmp.delta}
+                              </div>
+                            ) : cmpNoData ? (
+                              <div className="tnum mt-0.5" style={{ fontSize: 11, color: 'var(--muted-2)' }}>—</div>
+                            ) : (
+                              <div className="tnum mt-0.5" style={{ fontSize: 11, color: es.isActual ? 'var(--muted)' : 'var(--muted-2)' }}>
+                                {es.points} pts
+                              </div>
+                            )}
                             {/* PB tag */}
                             {isPB && (
                               <div className="absolute -top-1 -right-1 rounded" style={{ background: 'var(--pb)', color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '.04em', padding: '1px 4px' }}>
@@ -404,9 +456,15 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                           <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
                             {score.totalActualPoints || '—'}
                           </div>
-                          <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
-                            {gap === 0 ? 'LEADER' : `−${gap}`}
-                          </div>
+                          {paceDelta != null ? (
+                            <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 700, color: deltaColor(paceDelta) }} title="Banked vs best-decathlon points over the same events">
+                              {signed(paceDelta)} vs best
+                            </div>
+                          ) : (
+                            <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
+                              {gap === 0 ? 'LEADER' : `−${gap}`}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>
@@ -436,9 +494,15 @@ export function Scoreboard({ competition, athletes, onResultEntered, onResultRes
                           <div className="num tnum" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>
                             {score.predictedFinalScore}
                           </div>
-                          <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
-                            {gap === 0 ? 'LEADER' : `−${gap}`}
-                          </div>
+                          {finalDelta != null ? (
+                            <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 700, color: deltaColor(finalDelta) }} title={`Projected final vs best decathlon (${best!.total})`}>
+                              {signed(finalDelta)} vs best
+                            </div>
+                          ) : (
+                            <div className="tnum mt-0.5" style={{ fontSize: 11, fontWeight: 600, color: gap === 0 ? 'var(--pb)' : 'var(--muted)' }}>
+                              {gap === 0 ? 'LEADER' : `−${gap}`}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="num tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink-2)' }}>

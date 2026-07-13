@@ -6,6 +6,22 @@ export type CompetitionStatus = 'upcoming' | 'in_progress' | 'completed';
 export type EventType = 'track' | 'field';
 export type MeasurementUnit = 'seconds' | 'meters';
 
+/**
+ * The athlete's best-ever decathlon/heptathlon, broken down by event. Sourced
+ * from World Athletics and cached on the athlete; only present for WA-linked
+ * athletes.
+ */
+export interface BestCombined {
+  total: number;
+  /** WA date string of the meet, e.g. "06 JUN 2024". */
+  date: string;
+  competition: string;
+  /** eventId -> mark (our numeric units). */
+  marks: Record<string, number>;
+  /** eventId -> WA points. */
+  points: Record<string, number>;
+}
+
 export interface Athlete {
   id: string;
   name: string;
@@ -17,6 +33,7 @@ export interface Athlete {
   notes?: string;
   combinedPB?: number;
   waAthleteId?: string;
+  bestCombined?: BestCombined;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -4,7 +4,7 @@ import type { Competition, CompetitionType, CompetitionResults } from '../../typ
 import { useCompetitions } from '../../hooks/useCompetition';
 import { useAthletes } from '../../hooks/useAthletes';
 import { CompetitionSearch, type CompetitionImportData } from './CompetitionSearch';
-import { fetchAthleteProfile, mapPersonalBests, extractCombinedPB } from '../../lib/worldathletics';
+import { fetchAthleteProfile, fetchBestCombinedResult, mapPersonalBests, extractCombinedPB } from '../../lib/worldathletics';
 import { updateAthlete } from '../../lib/firebase';
 import { getCompetitionStatus } from '../../lib/competitionStatus';
 
@@ -105,7 +105,16 @@ export function CompetitionForm({ competition }: Props) {
           const profile = await fetchAthleteProfile(athlete.waAthleteId!);
           const pbs = mapPersonalBests(profile.personalBests, gender as 'male' | 'female');
           const combinedPB = extractCombinedPB(profile.personalBests, gender as 'male' | 'female');
-          await updateAthlete(athlete.id, { personalBests: pbs, combinedPB });
+          // Also refresh the best-ever decathlon breakdown (best-effort).
+          const best = await fetchBestCombinedResult(
+            athlete.waAthleteId!,
+            gender === 'male' ? 'decathlon' : 'heptathlon',
+            profile.name,
+          ).catch(() => null);
+          await updateAthlete(
+            athlete.id,
+            best ? { personalBests: pbs, combinedPB, bestCombined: best } : { personalBests: pbs, combinedPB },
+          );
         } catch {
           // Skip individual failures silently
         }

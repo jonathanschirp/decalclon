@@ -60,12 +60,15 @@ export function MobileScoreboard({
   );
 
   const [sortMode, setSortMode] = useState<SortMode>('predicted');
+  const [compareBest, setCompareBest] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ athleteId: string; eventId: string } | null>(null);
   const [disciplineViewIndex, setDisciplineViewIndex] = useState<number | null>(null);
 
   const scores = useMemo(() => sortAndRank(baseScores, sortMode), [baseScores, sortMode]);
   const athleteMap = useMemo(() => new Map(athletes.map((a) => [a.id, a])), [athletes]);
+  const anyBest = useMemo(() => athletes.some((a) => a.bestCombined), [athletes]);
+  const comparing = compareBest && anyBest;
 
   // Primary score follows the active sort; the other is shown below.
   const primaryScore = (s: AthleteScore) =>
@@ -139,6 +142,24 @@ export function MobileScoreboard({
         ))}
       </div>
 
+      {/* Compare vs best decathlon toggle */}
+      {anyBest && (
+        <div className="flex" style={{ padding: '0 12px 10px', background: 'var(--bg)', borderBottom: '1px solid var(--line)' }}>
+          <button
+            onClick={() => setCompareBest((v) => !v)}
+            style={{
+              flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 600,
+              border: `1px solid ${comparing ? 'var(--ink)' : 'var(--line)'}`,
+              background: comparing ? 'var(--ink)' : '#fff',
+              color: comparing ? '#fff' : 'var(--muted)',
+              borderRadius: 8, cursor: 'pointer',
+            }}
+          >
+            {comparing ? '✓ ' : ''}Compare vs best decathlon
+          </button>
+        </div>
+      )}
+
       {/* Cards list */}
       <div className="flex flex-col gap-1.5" style={{ padding: 10 }}>
         {scores.map((score) => {
@@ -146,6 +167,9 @@ export function MobileScoreboard({
           const done = completedCount(score);
           const stripe = medalStripeColor(score.position);
           const gap = score.position === 1 ? 0 : maxScore - primaryScore(score);
+          // Comparison vs the athlete's best-ever decathlon (projected final − best total).
+          const best = comparing ? athleteMap.get(score.athleteId)?.bestCombined : undefined;
+          const bestDelta = best ? score.predictedFinalScore - best.total : null;
 
           return (
             <div
@@ -217,15 +241,21 @@ export function MobileScoreboard({
                   ) : (
                     <>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: 5 }}>
-                        <span className="tnum" style={{ fontSize: 10, color: score.position === 1 ? 'var(--pb)' : 'var(--muted)', fontWeight: 600 }}>
-                          {score.position === 1 ? 'LEADER' : `−${gap}`}
-                        </span>
+                        {bestDelta != null ? (
+                          <span className="tnum" style={{ fontSize: 10, fontWeight: 700, color: bestDelta > 0 ? 'var(--pb)' : bestDelta < 0 ? 'var(--live)' : 'var(--muted)' }}>
+                            {bestDelta > 0 ? `+${bestDelta}` : bestDelta}
+                          </span>
+                        ) : (
+                          <span className="tnum" style={{ fontSize: 10, color: score.position === 1 ? 'var(--pb)' : 'var(--muted)', fontWeight: 600 }}>
+                            {score.position === 1 ? 'LEADER' : `−${gap}`}
+                          </span>
+                        )}
                         <span className="num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>
                           {primaryScore(score)}
                         </span>
                       </div>
                       <div className="tnum" style={{ fontSize: 10, marginTop: 3, color: 'var(--muted-2)', fontWeight: 600 }}>
-                        {secondaryScore(score)} {secondaryLabel}
+                        {best ? `vs best ${best.total}` : `${secondaryScore(score)} ${secondaryLabel}`}
                       </div>
                     </>
                   )}
@@ -344,15 +374,26 @@ export function MobileScoreboard({
                         }}>
                           {es && es.performance != null ? formatPerformance(event, es.performance) : '—'}
                         </div>
-                        <div className="tnum" style={{
-                          fontSize: 10, marginTop: 1,
-                          color: es?.isActual ? 'var(--muted)' : 'var(--muted-2)',
-                        }}>
-                          {es?.points ?? 0} pts
-                          {!es?.isActual && es?.performance != null && <span style={{ marginLeft: 4 }}>· PB</span>}
-                          {isWin && <span className="micro" style={{ color: 'var(--gold)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>#1</span>}
-                          {isPB && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>PB↑</span>}
-                        </div>
+                        {(() => {
+                          const bestPts = comparing && es?.isActual ? athlete?.bestCombined?.points[event.id] : undefined;
+                          if (comparing && es?.isActual) {
+                            if (bestPts == null) return <div className="tnum" style={{ fontSize: 10, marginTop: 1, color: 'var(--muted-2)' }}>—</div>;
+                            const d = es.points - bestPts;
+                            return (
+                              <div className="tnum" style={{ fontSize: 10, marginTop: 1, fontWeight: 700, color: d > 0 ? 'var(--pb)' : d < 0 ? 'var(--live)' : 'var(--muted)' }}>
+                                {d > 0 ? `+${d}` : d} vs best
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="tnum" style={{ fontSize: 10, marginTop: 1, color: es?.isActual ? 'var(--muted)' : 'var(--muted-2)' }}>
+                              {es?.points ?? 0} pts
+                              {!es?.isActual && es?.performance != null && <span style={{ marginLeft: 4 }}>· PB</span>}
+                              {isWin && <span className="micro" style={{ color: 'var(--gold)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>#1</span>}
+                              {isPB && <span className="micro" style={{ color: 'var(--pb)', fontWeight: 700, position: 'absolute', bottom: 7, right: 9 }}>PB↑</span>}
+                            </div>
+                          );
+                        })()}
                         {es?.isActual && (
                           <button
                             type="button"

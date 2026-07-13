@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import type { Gender } from '../../types';
+import type { BestCombined, Gender } from '../../types';
 import {
   searchAthletes,
   fetchAthleteProfile,
+  fetchBestCombinedResult,
   mapPersonalBests,
   extractCombinedPB,
   type WASearchResult,
@@ -18,6 +19,7 @@ interface Props {
     personalBests: Record<string, number>;
     combinedPB?: number;
     waAthleteId: string;
+    bestCombined?: BestCombined;
   }) => void;
 }
 
@@ -89,6 +91,16 @@ export function AthleteSearch({ query, disabled, onImport }: Props) {
       const importGender: Gender = hasHeptathlon ? 'female' : 'male';
       const pbs = mapPersonalBests(profile.personalBests, importGender);
       const combinedPB = extractCombinedPB(profile.personalBests, importGender);
+      // Best-ever decathlon/heptathlon breakdown — best-effort; failure here
+      // must not block importing the athlete.
+      let bestCombined;
+      try {
+        bestCombined = await fetchBestCombinedResult(
+          athlete.aaAthleteId,
+          importGender === 'male' ? 'decathlon' : 'heptathlon',
+          profile.name,
+        ) ?? undefined;
+      } catch { /* leave bestCombined undefined */ }
       onImport({
         name: profile.name,
         nationality: profile.country,
@@ -96,6 +108,7 @@ export function AthleteSearch({ query, disabled, onImport }: Props) {
         personalBests: pbs,
         combinedPB,
         waAthleteId: athlete.aaAthleteId,
+        bestCombined,
       });
       setResults([]);
     } catch {
